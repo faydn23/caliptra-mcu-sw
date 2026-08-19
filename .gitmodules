@@ -1,6 +1,6 @@
 [submodule "hw/caliptra-ss"]
 	path = hw/caliptra-ss
-	url = https://github.com/chipsalliance/caliptra-ss
+	url = https://github.com/faydn23/caliptra-ss.git
 	branch = main
 [submodule "network/net/lwip"]
 	path = network/net/lwip

@@ -40,7 +40,17 @@ add_files [ glob $caliptrartlDir/src/riscv_core/veer_el2/rtl/*/*.sv ]
 add_files [ glob $caliptrartlDir/src/riscv_core/veer_el2/rtl/*/*.v ]
 
 # Add Adam's Bridge
-source adams-bridge-files.tcl
+#source adams-bridge-files.tcl #fa
+# Add Adam's Bridge (or stub for faster builds)
+if {$STUB_ADAMS_BRIDGE eq "TRUE"} {
+  puts "STUB_ADAMS_BRIDGE=TRUE: skipping full adams-bridge (~354 files), using stub"
+  lappend VERILOG_OPTIONS STUB_ADAMS_BRIDGE
+  set_property verilog_define $VERILOG_OPTIONS [current_fileset]
+  source adams-bridge-files-stub.tcl
+} else {
+  source adams-bridge-files.tcl
+}
+
 
 # Add Caliptra headers and packages
 add_files [ glob $caliptrartlDir/src/*/rtl/*.svh ]
@@ -74,12 +84,126 @@ add_files $ssrtlDir/src/integration/testbench/prim_generic_otp.sv
 add_files [ glob $ssrtlDir/src/*/rtl/*.svh ]
 add_files [ glob $ssrtlDir/src/*/rtl/*.sv ]
 
+# USB2 VHDL + SV RTL required by USB-enabled caliptra_ss_top
+
+# usb_lib
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_general_subcmp_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_subcmp_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_fs_emb_dev_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_configuration_subcmp_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/ip_xxx_3511.e.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/ip_xxx_3511_cmp_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_cfg_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_configuration_app_cmsis_dap_jtag_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_ep_config_hub_cmsis_dap_jtag_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_ep_config_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_fs_hub_pkg.p.vhdl
+
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_ahb_master.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_ahb_slave.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_clkrec.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_dma.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_host_dma.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_host_pie.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_host_reg_if.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_host_sof_timer.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_host_synchronizer.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_pie.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_reg_if.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_rgen.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_sie.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_sieint.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_synchronizer.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_timers_sf.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_tx_sf_dpdm.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_upstreamled.m.vhdl
+
+# lib_usb_ip_3511
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511_hs/INTERFACE/ip_xxx_3511_hs.e.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511_hs/INTERFACE/ip_xxx_3511_hs_cmp_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511_hs/STRUCTURE/ip_xxx_3511_hs_structure.a.vhdl
+
+# lib_usb_ip_3515
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3515_hs/INTERFACE/ip_xxx_3515_hs.e.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3515_hs/INTERFACE/ip_xxx_3515_hs_cmp_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3515_hs/STRUCTURE/ip_xxx_3515_hs_structure.a.vhdl
+
+# lib_usb_ip_3516
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/ahb_dma_slave_cmp_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/ahb_dma_slave.m.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3516_hs_mem/INTERFACE/ip_xxx_3516_hs_mem.e.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3516_hs_mem/INTERFACE/ip_xxx_3516_hs_mem_cmp_pkg.p.vhdl
+add_files $ssrtlDir/third_party/usb2/src/ip_xxx_3516_hs_mem/STRUCTURE/ip_xxx_3516_hs_mem_structure.a.vhdl
+
+# SV wrappers
+add_files $ssrtlDir/third_party/usb2/src/integration/rtl/axilite_to_ahb.sv
+add_files $ssrtlDir/third_party/usb2/src/integration/rtl/axi_to_ahb.sv
+add_files $ssrtlDir/third_party/usb2/src/integration/rtl/ip_xxx_3516_hs_mem_wrapper.sv
+
+set usb_vhdl_files [list \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_general_subcmp_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_subcmp_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_fs_emb_dev_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_configuration_subcmp_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/ip_xxx_3511.e.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/ip_xxx_3511_cmp_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_cfg_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_configuration_app_cmsis_dap_jtag_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_ep_config_hub_cmsis_dap_jtag_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_ep_config_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/usb_fs_hub_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_ahb_master.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_ahb_slave.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_clkrec.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_dma.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_host_dma.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_host_pie.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_host_reg_if.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_host_sof_timer.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_host_synchronizer.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_pie.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_reg_if.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_rgen.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_sie.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_sieint.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_synchronizer.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_timers_sf.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_tx_sf_dpdm.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/usb_upstreamled.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511_hs/INTERFACE/ip_xxx_3511_hs.e.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511_hs/INTERFACE/ip_xxx_3511_hs_cmp_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511_hs/STRUCTURE/ip_xxx_3511_hs_structure.a.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3515_hs/INTERFACE/ip_xxx_3515_hs.e.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3515_hs/INTERFACE/ip_xxx_3515_hs_cmp_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3515_hs/STRUCTURE/ip_xxx_3515_hs_structure.a.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/INTERFACE/ahb_dma_slave_cmp_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3511/RTL/ahb_dma_slave.m.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3516_hs_mem/INTERFACE/ip_xxx_3516_hs_mem.e.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3516_hs_mem/INTERFACE/ip_xxx_3516_hs_mem_cmp_pkg.p.vhdl \
+  $ssrtlDir/third_party/usb2/src/ip_xxx_3516_hs_mem/STRUCTURE/ip_xxx_3516_hs_mem_structure.a.vhdl \
+]
+
+foreach f $usb_vhdl_files {
+    set obj [get_files $f]
+    if {[llength $obj] == 0} {
+        puts "ERROR: USB VHDL file not found in project: $f"
+    } else {
+        set_property library rtl $obj
+        puts "USB LIB SET: $f -> [get_property library $obj]"
+    }
+}
+puts "===== USB VHDL Library Check ====="
+foreach f $usb_vhdl_files {
+    puts "$f : [get_property library [get_files $f]]"
+}
+
 # I3C
 set i3cDir $ssrtlDir/third_party/i3c-core
 # Include headers and packages first
 add_files [ glob $i3cDir/src/*.svh ]
 add_files [ glob $i3cDir/src/libs/*.svh ]
 add_files [ glob $i3cDir/src/*/*/*_pkg.sv ]
+
 add_files [ glob $i3cDir/src/*/*_pkg.sv ]
 add_files [ glob $i3cDir/src/*_pkg.sv ]
 # Then the rest of the sv files
@@ -95,7 +219,17 @@ add_files [ glob $fpgaDir/src/*.sv]
 add_files [ glob $fpgaDir/src/*.v]
 
 # Replace RAM with FPGA block ram
-remove_files [ glob $caliptrartlDir/src/ecc/rtl/ecc_ram_tdp_file.sv ]
+#remove_files [ glob $caliptrartlDir/src/ecc/rtl/ecc_ram_tdp_file.sv ] #fa
+
+# Replace RAM with FPGA block ram (skipped when ECC is stubbed — no RAM to replace)
+if {$STUB_ECC eq "TRUE"} {
+  puts "STUB_ECC=TRUE: removing full ECC RTL, using stub"
+  lappend VERILOG_OPTIONS STUB_ECC
+  set_property verilog_define $VERILOG_OPTIONS [current_fileset]
+  remove_files [ glob $caliptrartlDir/src/ecc/rtl/*.sv ]
+} else {
+  remove_files [ glob $caliptrartlDir/src/ecc/rtl/ecc_ram_tdp_file.sv ]
+}
 
 # Replace caliptra_ss_top with version modified with faster I3C clocks
 file copy [ glob $ssrtlDir/src/integration/rtl/caliptra_ss_top.sv ] $outputDir/caliptra_ss_top.sv
@@ -161,6 +295,11 @@ ipx::associate_bus_interfaces -busif S_AXI_MCI -clock core_clk [ipx::current_cor
 ipx::associate_bus_interfaces -busif S_AXI_MCU_ROM -clock core_clk [ipx::current_core]
 ipx::associate_bus_interfaces -busif S_AXI_OTP -clock core_clk [ipx::current_core]
 ipx::associate_bus_interfaces -busif S_AXI_LCC -clock core_clk [ipx::current_core]
+
+# USB AXI slave interfaces
+ipx::associate_bus_interfaces -busif S_AXI_USB_DEV  -clock core_clk [ipx::current_core]
+ipx::associate_bus_interfaces -busif S_AXI_USB_HOST -clock core_clk [ipx::current_core]
+ipx::associate_bus_interfaces -busif S_AXI_USB_DMA  -clock core_clk [ipx::current_core]
 # Different clock used for I3C
 ipx::associate_bus_interfaces -busif S_AXI_I3C -clock i3c_clk [ipx::current_core]
 ipx::associate_bus_interfaces -busif S_AXI_I3C_SPARE -clock i3c_clk [ipx::current_core]

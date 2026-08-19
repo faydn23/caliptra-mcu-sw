@@ -20,6 +20,8 @@ set I3C_SCL_RATE_KHZ 1000
 set I3C_OUTSIDE FALSE
 set SEGMENTED FALSE
 set SEGMENTED_WRITE_NCR FALSE
+set STUB_ADAMS_BRIDGE TRUE 
+set STUB_ECC TRUE 
 # Simplistic processing of command line arguments to override defaults
 foreach arg $argv {
   regexp {(.*)=(.*)} $arg fullmatch option value
@@ -130,12 +132,24 @@ puts $xdc_fd {set_false_path -from [get_clocks {mcu_jtag_clk}] -to [get_clocks {
 close $xdc_fd
 
 #### Add AXI Infrastructure
+
+# Main AXI SmartConnect:
+# M00-M13 = existing peripherals
+# M14     = connection to USB SmartConnect
 create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_interconnect_0
 set_property -dict [list \
-  CONFIG.NUM_MI {14} \
+  CONFIG.NUM_MI {15} \
   CONFIG.NUM_SI {6} \
   CONFIG.NUM_CLKS {2} \
   ] [get_bd_cells axi_interconnect_0]
+
+# Separate SmartConnect for the three USB AXI interfaces
+create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 usb_interconnect_0
+set_property -dict [list \
+  CONFIG.NUM_MI {3} \
+  CONFIG.NUM_SI {1} \
+  CONFIG.NUM_CLKS {1} \
+  ] [get_bd_cells usb_interconnect_0]
 
 proc register_axi_subordinate {src_block src_port address size dst addrseg name debug clock} {
   global axi_subordinates
@@ -172,8 +186,14 @@ register_axi_subordinate axi_interconnect_0 M10_AXI  0xA4081000 0x00001000 axi_c
 register_axi_subordinate axi_interconnect_0 M11_AXI  0xB0000000 0x00018000 cptra_rom_backdoor_bram_0/S_AXI        Mem0    S_AXI_CALIPTRA_ROM FALSE  "/ps_0/pl0_ref_clk"
 register_axi_subordinate axi_interconnect_0 M12_AXI  0xB0020000 0x00020000 mcu_rom_backdoor_bram_0/S_AXI          Mem0    S_AXI_SS_ROM       FALSE  "/ps_0/pl0_ref_clk"
 
+
+register_axi_subordinate usb_interconnect_0 M00_AXI 0xA4200000 0x00100000 caliptra_package_top_0/S_AXI_USB_DEV  reg0 S_AXI_USB_DEV  TRUE "/ps_0/pl0_ref_clk"
+register_axi_subordinate usb_interconnect_0 M01_AXI 0xA4300000 0x00100000 caliptra_package_top_0/S_AXI_USB_HOST reg0 S_AXI_USB_HOST TRUE "/ps_0/pl0_ref_clk"
+register_axi_subordinate usb_interconnect_0 M02_AXI 0xA4400000 0x00100000 caliptra_package_top_0/S_AXI_USB_DMA  reg0 S_AXI_USB_DMA  TRUE "/ps_0/pl0_ref_clk"
+
 # Create reset block
 create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_0
+
 
 #### Add Devices ####
 
@@ -236,6 +256,11 @@ set_property name M_AXI_MCU_SB [get_bd_intf_nets caliptra_package_top_0_M_AXI_MC
 # XILINX DMA
 connect_bd_intf_net [get_bd_intf_pins axi_cdma_0/M_AXI] [get_bd_intf_pins axi_interconnect_0/S05_AXI]
 
+# Main SmartConnect -> USB SmartConnect
+connect_bd_intf_net -intf_net M_AXI_USB_BRIDGE \
+  [get_bd_intf_pins axi_interconnect_0/M14_AXI] \
+  [get_bd_intf_pins usb_interconnect_0/S00_AXI]
+
 #### Connect axi subordinates to the interconnects ####
 for {set i 1} {$i <= $axi_subordinates(ID)} {incr i} {
   puts "$i $axi_subordinates($i,name)"
@@ -251,6 +276,7 @@ connect_bd_net -net proc_sys_reset_0_peripheral_aresetn \
   [get_bd_pins proc_sys_reset_0/peripheral_aresetn] \
   [get_bd_pins axi_apb_bridge_0/s_axi_aresetn] \
   [get_bd_pins axi_interconnect_0/aresetn] \
+  [get_bd_pins usb_interconnect_0/aresetn] \
   [get_bd_pins caliptra_package_top_0/S_AXI_WRAPPER_ARESETN] \
   [get_bd_pins cptra_rom_backdoor_bram_0/s_axi_aresetn] \
   [get_bd_pins mcu_rom_backdoor_bram_0/s_axi_aresetn] \
@@ -266,6 +292,7 @@ connect_bd_net \
   [get_bd_pins $ps_axi_aclk] \
   [get_bd_pins proc_sys_reset_0/slowest_sync_clk] \
   [get_bd_pins axi_interconnect_0/aclk] \
+  [get_bd_pins usb_interconnect_0/aclk] \
   [get_bd_pins caliptra_package_top_0/core_clk] \
   [get_bd_pins cptra_rom_backdoor_bram_0/s_axi_aclk] \
   [get_bd_pins mcu_rom_backdoor_bram_0/s_axi_aclk] \
@@ -333,7 +360,7 @@ connect_bd_net [get_bd_pins caliptra_package_top_0/ARM_USER] [get_bd_pins axi_in
 
 #### Assign address segments for all AXI managers ####
 set managers {ps_0/M_AXI_FPD caliptra_package_top_0/M_AXI_MCU_IFU caliptra_package_top_0/M_AXI_MCU_LSU caliptra_package_top_0/M_AXI_MCU_SB caliptra_package_top_0/M_AXI_CALIPTRA axi_cdma_0/Data}
-set base_offsets {0 0 0 0 0}
+set base_offsets {0 0 0 0 0 0}
 
 foreach manager $managers base_offset $base_offsets {
   for {set i 1} {$i <= $axi_subordinates(ID)} {incr i} {
@@ -453,7 +480,7 @@ if {$SEGMENTED} {
 
 # Set place design directives to avoid SLICE overlaps
 set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE Explore [get_runs impl_1]
-set_property STEPS.PLACE_DESIGN.ARGS.SUBDIRECTIVE { Floorplan.ForceSpreading.high GPlace.ForceSpreading.high GPlace.ReduceCongestion.high DPlace.ReducePinDensity.med} [get_runs impl_1]
+#set_property STEPS.PLACE_DESIGN.ARGS.SUBDIRECTIVE { Floorplan.ForceSpreading.high GPlace.ForceSpreading.high GPlace.ReduceCongestion.high DPlace.ReducePinDensity.med} [get_runs impl_1]
 
 # Load a previous NCR
 if {$SEGMENTED} {

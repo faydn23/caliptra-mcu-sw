@@ -7,7 +7,7 @@
 > 
 > // Trying to avoid compile error in css_mcu0_el2_param.vh. This worked in caliptra_ss_top but this would be better.
 > `include "css_mcu0_el2_pdef.vh"
-39a47,48
+42a50,51
 >     // TODO: Hacking in this i3c clock
 >     input logic cptra_i3c_clk_i,
 895c904,959
