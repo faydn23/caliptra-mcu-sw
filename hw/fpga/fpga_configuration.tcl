@@ -324,6 +324,7 @@ connect_bd_intf_net [get_bd_intf_pins caliptra_package_top_0/rom_backdoor]     [
 connect_bd_intf_net [get_bd_intf_pins caliptra_package_top_0/mcu_rom_backdoor] [get_bd_intf_pins mcu_rom_backdoor_bram_0/BRAM_PORTA]
 connect_bd_intf_net [get_bd_intf_pins caliptra_package_top_0/otp_mem_backdoor] [get_bd_intf_pins otp_ram_bram_ctrl_0/BRAM_PORTA]
 
+
 #### I3C Connections ####
 # Connections to I3C driver board
 create_bd_port -dir O -type data EXT_SDA_UP

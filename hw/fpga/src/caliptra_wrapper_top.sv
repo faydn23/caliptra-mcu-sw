@@ -25,6 +25,17 @@ import caliptra_fpga_realtime_regs_pkg::*;
 `include "caliptra_ss_includes.svh"
 
 module caliptra_wrapper_top (
+`ifdef HTG940_ENTROPY_CONTROL
+    input wire [3:0] board_entropy_data,
+    input wire board_entropy_valid,
+    output wire board_entropy_req,
+    output wire board_mcu_log_valid,
+    output wire [7:0] board_mcu_log_byte,
+    output wire board_core_log_valid,
+    output wire [7:0] board_core_log_byte,
+
+`endif
+
     input bit core_clk,
     input bit i3c_clk,
 
@@ -505,111 +516,157 @@ module caliptra_wrapper_top (
     (* syn_keep = "true", mark_debug = "true" *)input  wire                  S_AXI_OTP_WLAST,
     (* syn_keep = "true", mark_debug = "true" *)output wire [18:0] S_AXI_OTP_BID,
 
+    // External USB ULPI PHY Interface
+    input  logic       USB_ULPI_CLK,
+    inout  wire  [7:0] USB_ULPI_DATA,
+    input  logic       USB_ULPI_DIR,
+    input  logic       USB_ULPI_NXT,
+    output logic       USB_ULPI_STP,
 
-    // USB Device S_AXI Interface (USB regs exposed to BD/PS; USB PHY pins stay inside wrapper)
-    input  wire [31:0] S_AXI_USB_DEV_AWADDR,
-    input  wire [1:0]  S_AXI_USB_DEV_AWBURST,
-    input  wire [2:0]  S_AXI_USB_DEV_AWSIZE,
-    input  wire [7:0]  S_AXI_USB_DEV_AWLEN,
-    input  wire [31:0] S_AXI_USB_DEV_AWUSER,
-    input  wire [15:0] S_AXI_USB_DEV_AWID,
-    input  wire        S_AXI_USB_DEV_AWLOCK,
-    input  wire        S_AXI_USB_DEV_AWVALID,
-    output wire        S_AXI_USB_DEV_AWREADY,
-    input  wire [31:0] S_AXI_USB_DEV_WDATA,
-    input  wire [3:0]  S_AXI_USB_DEV_WSTRB,
-    input  wire        S_AXI_USB_DEV_WVALID,
-    output wire        S_AXI_USB_DEV_WREADY,
-    input  wire        S_AXI_USB_DEV_WLAST,
-    output wire [1:0]  S_AXI_USB_DEV_BRESP,
-    output wire [15:0] S_AXI_USB_DEV_BID,
-    output wire        S_AXI_USB_DEV_BVALID,
-    input  wire        S_AXI_USB_DEV_BREADY,
-    input  wire [31:0] S_AXI_USB_DEV_ARADDR,
-    input  wire [1:0]  S_AXI_USB_DEV_ARBURST,
-    input  wire [2:0]  S_AXI_USB_DEV_ARSIZE,
-    input  wire [7:0]  S_AXI_USB_DEV_ARLEN,
-    input  wire [31:0] S_AXI_USB_DEV_ARUSER,
-    input  wire [15:0] S_AXI_USB_DEV_ARID,
-    input  wire        S_AXI_USB_DEV_ARLOCK,
-    input  wire        S_AXI_USB_DEV_ARVALID,
-    output wire        S_AXI_USB_DEV_ARREADY,
-    output wire [31:0] S_AXI_USB_DEV_RDATA,
-    output wire [1:0]  S_AXI_USB_DEV_RRESP,
-    output wire [15:0] S_AXI_USB_DEV_RID,
-    output wire        S_AXI_USB_DEV_RLAST,
-    output wire        S_AXI_USB_DEV_RVALID,
-    input  wire        S_AXI_USB_DEV_RREADY,
+    // USB Host VBUS interface
+    //input  logic       USB_VBUS_VALID, 
+    //output logic       USB_VBUS_ENABLE,
 
-    // USB Host S_AXI Interface (USB regs exposed to BD/PS; USB PHY pins stay inside wrapper)
-    input  wire [31:0] S_AXI_USB_HOST_AWADDR,
-    input  wire [1:0]  S_AXI_USB_HOST_AWBURST,
-    input  wire [2:0]  S_AXI_USB_HOST_AWSIZE,
-    input  wire [7:0]  S_AXI_USB_HOST_AWLEN,
-    input  wire [31:0] S_AXI_USB_HOST_AWUSER,
-    input  wire [15:0] S_AXI_USB_HOST_AWID,
-    input  wire        S_AXI_USB_HOST_AWLOCK,
-    input  wire        S_AXI_USB_HOST_AWVALID,
-    output wire        S_AXI_USB_HOST_AWREADY,
-    input  wire [31:0] S_AXI_USB_HOST_WDATA,
-    input  wire [3:0]  S_AXI_USB_HOST_WSTRB,
-    input  wire        S_AXI_USB_HOST_WVALID,
-    output wire        S_AXI_USB_HOST_WREADY,
-    input  wire        S_AXI_USB_HOST_WLAST,
-    output wire [1:0]  S_AXI_USB_HOST_BRESP,
-    output wire [15:0] S_AXI_USB_HOST_BID,
-    output wire        S_AXI_USB_HOST_BVALID,
-    input  wire        S_AXI_USB_HOST_BREADY,
-    input  wire [31:0] S_AXI_USB_HOST_ARADDR,
-    input  wire [1:0]  S_AXI_USB_HOST_ARBURST,
-    input  wire [2:0]  S_AXI_USB_HOST_ARSIZE,
-    input  wire [7:0]  S_AXI_USB_HOST_ARLEN,
-    input  wire [31:0] S_AXI_USB_HOST_ARUSER,
-    input  wire [15:0] S_AXI_USB_HOST_ARID,
-    input  wire        S_AXI_USB_HOST_ARLOCK,
-    input  wire        S_AXI_USB_HOST_ARVALID,
-    output wire        S_AXI_USB_HOST_ARREADY,
-    output wire [31:0] S_AXI_USB_HOST_RDATA,
-    output wire [1:0]  S_AXI_USB_HOST_RRESP,
-    output wire [15:0] S_AXI_USB_HOST_RID,
-    output wire        S_AXI_USB_HOST_RLAST,
-    output wire        S_AXI_USB_HOST_RVALID,
-    input  wire        S_AXI_USB_HOST_RREADY,
 
-    // USB DMA S_AXI Interface (USB regs exposed to BD/PS; USB PHY pins stay inside wrapper)
-    input  wire [31:0] S_AXI_USB_DMA_AWADDR,
-    input  wire [1:0]  S_AXI_USB_DMA_AWBURST,
-    input  wire [2:0]  S_AXI_USB_DMA_AWSIZE,
-    input  wire [7:0]  S_AXI_USB_DMA_AWLEN,
-    input  wire [31:0] S_AXI_USB_DMA_AWUSER,
-    input  wire [15:0] S_AXI_USB_DMA_AWID,
-    input  wire        S_AXI_USB_DMA_AWLOCK,
-    input  wire        S_AXI_USB_DMA_AWVALID,
-    output wire        S_AXI_USB_DMA_AWREADY,
-    input  wire [31:0] S_AXI_USB_DMA_WDATA,
-    input  wire [3:0]  S_AXI_USB_DMA_WSTRB,
-    input  wire        S_AXI_USB_DMA_WVALID,
-    output wire        S_AXI_USB_DMA_WREADY,
-    input  wire        S_AXI_USB_DMA_WLAST,
-    output wire [1:0]  S_AXI_USB_DMA_BRESP,
-    output wire [15:0] S_AXI_USB_DMA_BID,
-    output wire        S_AXI_USB_DMA_BVALID,
-    input  wire        S_AXI_USB_DMA_BREADY,
-    input  wire [31:0] S_AXI_USB_DMA_ARADDR,
-    input  wire [1:0]  S_AXI_USB_DMA_ARBURST,
-    input  wire [2:0]  S_AXI_USB_DMA_ARSIZE,
-    input  wire [7:0]  S_AXI_USB_DMA_ARLEN,
-    input  wire [31:0] S_AXI_USB_DMA_ARUSER,
-    input  wire [15:0] S_AXI_USB_DMA_ARID,
-    input  wire        S_AXI_USB_DMA_ARLOCK,
-    input  wire        S_AXI_USB_DMA_ARVALID,
-    output wire        S_AXI_USB_DMA_ARREADY,
-    output wire [31:0] S_AXI_USB_DMA_RDATA,
-    output wire [1:0]  S_AXI_USB_DMA_RRESP,
-    output wire [15:0] S_AXI_USB_DMA_RID,
-    output wire        S_AXI_USB_DMA_RLAST,
-    output wire        S_AXI_USB_DMA_RVALID,
-    input  wire        S_AXI_USB_DMA_RREADY,
+    // USB combo AXI: DEV0 CSR, OCP Recovery, hub control.
+    input  wire [31:0] S_AXI_USB_COMBO_AWADDR,
+    input  wire [1:0]  S_AXI_USB_COMBO_AWBURST,
+    input  wire [2:0]  S_AXI_USB_COMBO_AWSIZE,
+    input  wire [7:0]  S_AXI_USB_COMBO_AWLEN,
+    input  wire [31:0] S_AXI_USB_COMBO_AWUSER,
+    input  wire [15:0] S_AXI_USB_COMBO_AWID,
+    input  wire        S_AXI_USB_COMBO_AWLOCK,
+    input  wire        S_AXI_USB_COMBO_AWVALID,
+    output wire        S_AXI_USB_COMBO_AWREADY,
+    input  wire [31:0] S_AXI_USB_COMBO_WDATA,
+    input  wire [3:0]  S_AXI_USB_COMBO_WSTRB,
+    input  wire        S_AXI_USB_COMBO_WVALID,
+    output wire        S_AXI_USB_COMBO_WREADY,
+    input  wire        S_AXI_USB_COMBO_WLAST,
+    output wire [1:0]  S_AXI_USB_COMBO_BRESP,
+    output wire [15:0] S_AXI_USB_COMBO_BID,
+    output wire        S_AXI_USB_COMBO_BVALID,
+    input  wire        S_AXI_USB_COMBO_BREADY,
+    input  wire [31:0] S_AXI_USB_COMBO_ARADDR,
+    input  wire [1:0]  S_AXI_USB_COMBO_ARBURST,
+    input  wire [2:0]  S_AXI_USB_COMBO_ARSIZE,
+    input  wire [7:0]  S_AXI_USB_COMBO_ARLEN,
+    input  wire [31:0] S_AXI_USB_COMBO_ARUSER,
+    input  wire [15:0] S_AXI_USB_COMBO_ARID,
+    input  wire        S_AXI_USB_COMBO_ARLOCK,
+    input  wire        S_AXI_USB_COMBO_ARVALID,
+    output wire        S_AXI_USB_COMBO_ARREADY,
+    output wire [31:0] S_AXI_USB_COMBO_RDATA,
+    output wire [1:0]  S_AXI_USB_COMBO_RRESP,
+    output wire [15:0] S_AXI_USB_COMBO_RID,
+    output wire        S_AXI_USB_COMBO_RLAST,
+    output wire        S_AXI_USB_COMBO_RVALID,
+    input  wire        S_AXI_USB_COMBO_RREADY,
+
+    // USB DEV0 memory AXI interface.
+    input  wire [31:0] S_AXI_USB_DEV0_MEM_AWADDR,
+    input  wire [1:0]  S_AXI_USB_DEV0_MEM_AWBURST,
+    input  wire [2:0]  S_AXI_USB_DEV0_MEM_AWSIZE,
+    input  wire [7:0]  S_AXI_USB_DEV0_MEM_AWLEN,
+    input  wire [31:0] S_AXI_USB_DEV0_MEM_AWUSER,
+    input  wire [15:0] S_AXI_USB_DEV0_MEM_AWID,
+    input  wire        S_AXI_USB_DEV0_MEM_AWLOCK,
+    input  wire        S_AXI_USB_DEV0_MEM_AWVALID,
+    output wire        S_AXI_USB_DEV0_MEM_AWREADY,
+    input  wire [31:0] S_AXI_USB_DEV0_MEM_WDATA,
+    input  wire [3:0]  S_AXI_USB_DEV0_MEM_WSTRB,
+    input  wire        S_AXI_USB_DEV0_MEM_WVALID,
+    output wire        S_AXI_USB_DEV0_MEM_WREADY,
+    input  wire        S_AXI_USB_DEV0_MEM_WLAST,
+    output wire [1:0]  S_AXI_USB_DEV0_MEM_BRESP,
+    output wire [15:0] S_AXI_USB_DEV0_MEM_BID,
+    output wire        S_AXI_USB_DEV0_MEM_BVALID,
+    input  wire        S_AXI_USB_DEV0_MEM_BREADY,
+    input  wire [31:0] S_AXI_USB_DEV0_MEM_ARADDR,
+    input  wire [1:0]  S_AXI_USB_DEV0_MEM_ARBURST,
+    input  wire [2:0]  S_AXI_USB_DEV0_MEM_ARSIZE,
+    input  wire [7:0]  S_AXI_USB_DEV0_MEM_ARLEN,
+    input  wire [31:0] S_AXI_USB_DEV0_MEM_ARUSER,
+    input  wire [15:0] S_AXI_USB_DEV0_MEM_ARID,
+    input  wire        S_AXI_USB_DEV0_MEM_ARLOCK,
+    input  wire        S_AXI_USB_DEV0_MEM_ARVALID,
+    output wire        S_AXI_USB_DEV0_MEM_ARREADY,
+    output wire [31:0] S_AXI_USB_DEV0_MEM_RDATA,
+    output wire [1:0]  S_AXI_USB_DEV0_MEM_RRESP,
+    output wire [15:0] S_AXI_USB_DEV0_MEM_RID,
+    output wire        S_AXI_USB_DEV0_MEM_RLAST,
+    output wire        S_AXI_USB_DEV0_MEM_RVALID,
+    input  wire        S_AXI_USB_DEV0_MEM_RREADY,
+
+    // USB DEV1 CSR AXI interface.
+    input  wire [31:0] S_AXI_USB_DEV1_CSR_AWADDR,
+    input  wire [1:0]  S_AXI_USB_DEV1_CSR_AWBURST,
+    input  wire [2:0]  S_AXI_USB_DEV1_CSR_AWSIZE,
+    input  wire [7:0]  S_AXI_USB_DEV1_CSR_AWLEN,
+    input  wire [31:0] S_AXI_USB_DEV1_CSR_AWUSER,
+    input  wire [15:0] S_AXI_USB_DEV1_CSR_AWID,
+    input  wire        S_AXI_USB_DEV1_CSR_AWLOCK,
+    input  wire        S_AXI_USB_DEV1_CSR_AWVALID,
+    output wire        S_AXI_USB_DEV1_CSR_AWREADY,
+    input  wire [31:0] S_AXI_USB_DEV1_CSR_WDATA,
+    input  wire [3:0]  S_AXI_USB_DEV1_CSR_WSTRB,
+    input  wire        S_AXI_USB_DEV1_CSR_WVALID,
+    output wire        S_AXI_USB_DEV1_CSR_WREADY,
+    input  wire        S_AXI_USB_DEV1_CSR_WLAST,
+    output wire [1:0]  S_AXI_USB_DEV1_CSR_BRESP,
+    output wire [15:0] S_AXI_USB_DEV1_CSR_BID,
+    output wire        S_AXI_USB_DEV1_CSR_BVALID,
+    input  wire        S_AXI_USB_DEV1_CSR_BREADY,
+    input  wire [31:0] S_AXI_USB_DEV1_CSR_ARADDR,
+    input  wire [1:0]  S_AXI_USB_DEV1_CSR_ARBURST,
+    input  wire [2:0]  S_AXI_USB_DEV1_CSR_ARSIZE,
+    input  wire [7:0]  S_AXI_USB_DEV1_CSR_ARLEN,
+    input  wire [31:0] S_AXI_USB_DEV1_CSR_ARUSER,
+    input  wire [15:0] S_AXI_USB_DEV1_CSR_ARID,
+    input  wire        S_AXI_USB_DEV1_CSR_ARLOCK,
+    input  wire        S_AXI_USB_DEV1_CSR_ARVALID,
+    output wire        S_AXI_USB_DEV1_CSR_ARREADY,
+    output wire [31:0] S_AXI_USB_DEV1_CSR_RDATA,
+    output wire [1:0]  S_AXI_USB_DEV1_CSR_RRESP,
+    output wire [15:0] S_AXI_USB_DEV1_CSR_RID,
+    output wire        S_AXI_USB_DEV1_CSR_RLAST,
+    output wire        S_AXI_USB_DEV1_CSR_RVALID,
+    input  wire        S_AXI_USB_DEV1_CSR_RREADY,
+
+    // USB DEV1 memory AXI interface.
+    input  wire [31:0] S_AXI_USB_DEV1_MEM_AWADDR,
+    input  wire [1:0]  S_AXI_USB_DEV1_MEM_AWBURST,
+    input  wire [2:0]  S_AXI_USB_DEV1_MEM_AWSIZE,
+    input  wire [7:0]  S_AXI_USB_DEV1_MEM_AWLEN,
+    input  wire [31:0] S_AXI_USB_DEV1_MEM_AWUSER,
+    input  wire [15:0] S_AXI_USB_DEV1_MEM_AWID,
+    input  wire        S_AXI_USB_DEV1_MEM_AWLOCK,
+    input  wire        S_AXI_USB_DEV1_MEM_AWVALID,
+    output wire        S_AXI_USB_DEV1_MEM_AWREADY,
+    input  wire [31:0] S_AXI_USB_DEV1_MEM_WDATA,
+    input  wire [3:0]  S_AXI_USB_DEV1_MEM_WSTRB,
+    input  wire        S_AXI_USB_DEV1_MEM_WVALID,
+    output wire        S_AXI_USB_DEV1_MEM_WREADY,
+    input  wire        S_AXI_USB_DEV1_MEM_WLAST,
+    output wire [1:0]  S_AXI_USB_DEV1_MEM_BRESP,
+    output wire [15:0] S_AXI_USB_DEV1_MEM_BID,
+    output wire        S_AXI_USB_DEV1_MEM_BVALID,
+    input  wire        S_AXI_USB_DEV1_MEM_BREADY,
+    input  wire [31:0] S_AXI_USB_DEV1_MEM_ARADDR,
+    input  wire [1:0]  S_AXI_USB_DEV1_MEM_ARBURST,
+    input  wire [2:0]  S_AXI_USB_DEV1_MEM_ARSIZE,
+    input  wire [7:0]  S_AXI_USB_DEV1_MEM_ARLEN,
+    input  wire [31:0] S_AXI_USB_DEV1_MEM_ARUSER,
+    input  wire [15:0] S_AXI_USB_DEV1_MEM_ARID,
+    input  wire        S_AXI_USB_DEV1_MEM_ARLOCK,
+    input  wire        S_AXI_USB_DEV1_MEM_ARVALID,
+    output wire        S_AXI_USB_DEV1_MEM_ARREADY,
+    output wire [31:0] S_AXI_USB_DEV1_MEM_RDATA,
+    output wire [1:0]  S_AXI_USB_DEV1_MEM_RRESP,
+    output wire [15:0] S_AXI_USB_DEV1_MEM_RID,
+    output wire        S_AXI_USB_DEV1_MEM_RLAST,
+    output wire        S_AXI_USB_DEV1_MEM_RVALID,
+    input  wire        S_AXI_USB_DEV1_MEM_RREADY,
 
     // ROM AXI Interface
     input  logic rom_backdoor_clk,
@@ -687,7 +744,10 @@ module caliptra_wrapper_top (
     output	wire [1:0]                S_AXI_WRAPPER_RRESP
     );
 
-    axi4lite_intf wrapper_s_axil ();
+    axi4lite_intf #(
+    .DATA_WIDTH(32),
+    .ADDR_WIDTH(32)
+    ) wrapper_s_axil ();
 
     caliptra_fpga_realtime_regs__in_t hwif_in;
     caliptra_fpga_realtime_regs__out_t hwif_out;
@@ -733,19 +793,27 @@ module caliptra_wrapper_top (
     assign ARM_USER = hwif_out.interface_regs.arm_user.arm_user.value;
     assign xilinx_i3c_aresetn = axi_reset;
 
-    // When sw sets trigger_axi_reset, assert the reset for 0xF cycles (requirement is 4 cycles).
+    // S_AXI_WRAPPER_ARESETN is the board/system reset. Hold the internal
+    // active-low reset for another 0xF core-clock cycles after it is released.
+    // A software request can subsequently generate the same reset pulse.
     (* syn_keep = "true", mark_debug = "true" *) reg [3:0] axi_reset_counter;
     (* syn_keep = "true", mark_debug = "true" *) reg axi_reset_triggered;
-    always@(posedge core_clk) begin
-        axi_reset_triggered <= hwif_out.interface_regs.control.trigger_axi_reset.value;
-        if (hwif_out.interface_regs.control.trigger_axi_reset.value && ~axi_reset_triggered) begin
-            axi_reset_counter <= 4'hf;
-            axi_reset <= 0;
-        end else if (axi_reset_counter > 4'h0) begin
-            axi_reset <= 0;
-            axi_reset_counter <= axi_reset_counter - 1;
+    always @(posedge core_clk or negedge S_AXI_WRAPPER_ARESETN) begin
+        if (!S_AXI_WRAPPER_ARESETN) begin
+            axi_reset_counter   <= 4'hf;
+            axi_reset_triggered <= 1'b0;
+            axi_reset           <= 1'b0;
         end else begin
-            axi_reset <= 1;
+            axi_reset_triggered <= hwif_out.interface_regs.control.trigger_axi_reset.value;
+            if (hwif_out.interface_regs.control.trigger_axi_reset.value && ~axi_reset_triggered) begin
+                axi_reset_counter <= 4'hf;
+                axi_reset         <= 1'b0;
+            end else if (axi_reset_counter != 4'h0) begin
+                axi_reset_counter <= axi_reset_counter - 1'b1;
+                axi_reset         <= 1'b0;
+            end else begin
+                axi_reset <= 1'b1;
+            end
         end
     end
 
@@ -892,7 +960,10 @@ caliptra_veer_sram_export veer_sram_export_inst (
     .el2_mem_export(el2_mem_export.veer_sram_sink)
 );
 
-abr_mem_top abr_mem_top_inst (
+abr_mem_top #(
+    .MASKING_EN(1),
+    .SRAM_LATENCY(1)
+) abr_mem_top_inst (
     .clk_i(core_clk),
     .abr_memory_export(abr_memory_export.resp)
 );
@@ -940,6 +1011,89 @@ mbox_ram1 (
 );
 
 // SRAM for imem/ROM
+`ifdef HTG940_FPGA
+
+// HTG940_SYMMETRIC_ROM_PORTS: imem_inst1
+logic [63:0] htg_cptra_rom_rdata;
+logic htg_cptra_rom_upper_q;
+
+always_ff @(posedge core_clk) begin
+    if (rom_backdoor_rst)
+        htg_cptra_rom_upper_q <= 1'b0;
+    else if (rom_backdoor_en && !(|rom_backdoor_we))
+        htg_cptra_rom_upper_q <= rom_backdoor_addr[0];
+end
+
+assign rom_backdoor_rddata = htg_cptra_rom_upper_q
+    ? htg_cptra_rom_rdata[63:32]
+    : htg_cptra_rom_rdata[31:0];
+
+xpm_memory_tdpram #(
+    .ADDR_WIDTH_A(`CALIPTRA_IMEM_ADDR_WIDTH), // DECIMAL
+    .ADDR_WIDTH_B(15),              // DECIMAL
+    .AUTO_SLEEP_TIME(0),            // DECIMAL
+    .BYTE_WRITE_WIDTH_A(8),        // DECIMAL
+    .BYTE_WRITE_WIDTH_B(8),         // DECIMAL
+    .CASCADE_HEIGHT(0),             // DECIMAL
+    .CLOCKING_MODE("common_clock"), // String
+    .ECC_MODE("no_ecc"),            // String
+`ifdef HTG940_FPGA
+    .MEMORY_INIT_FILE("caliptra_rom.mem"), // String
+`else
+    .MEMORY_INIT_FILE("none"),      // String
+`endif
+    .MEMORY_INIT_PARAM("0"),        // String
+    .MEMORY_OPTIMIZATION("false"),  // String
+    .MEMORY_PRIMITIVE("block"),      // String
+    .MEMORY_SIZE(96*1024*8),        // DECIMAL
+    .MESSAGE_CONTROL(0),            // DECIMAL
+    .READ_DATA_WIDTH_A(64),         // DECIMAL
+    .READ_DATA_WIDTH_B(64),         // DECIMAL
+    .READ_LATENCY_A(1),             // DECIMAL
+    .READ_LATENCY_B(1),             // DECIMAL
+    .READ_RESET_VALUE_A("0"),       // String
+    .READ_RESET_VALUE_B("0"),       // String
+    .RST_MODE_A("SYNC"),            // String
+    .RST_MODE_B("SYNC"),            // String
+    .SIM_ASSERT_CHK(0),             // DECIMAL; 0=disable simulation messages, 1=enable simulation messages
+    .USE_EMBEDDED_CONSTRAINT(0),    // DECIMAL
+    .USE_MEM_INIT(1),               // DECIMAL
+    .USE_MEM_INIT_MMI(1),           // DECIMAL
+    .WAKEUP_TIME("disable_sleep"),  // String
+    .WRITE_DATA_WIDTH_A(64),        // DECIMAL
+    .WRITE_DATA_WIDTH_B(64),        // DECIMAL
+    .WRITE_MODE_A("no_change"),     // String
+    .WRITE_MODE_B("no_change"),     // String
+    .WRITE_PROTECT(1)               // DECIMAL
+)
+imem_inst1 (
+    .dbiterra(),
+    .dbiterrb(),
+    .douta(imem_rdata),
+    .doutb(htg_cptra_rom_rdata),
+    .sbiterra(),
+    .sbiterrb(),
+    .addra(imem_addr),
+    .addrb((rom_backdoor_addr >> 1)),
+    .clka(core_clk),
+    .clkb(core_clk),
+    .dina(0),
+    .dinb({rom_backdoor_wrdata, rom_backdoor_wrdata}),
+    .ena(imem_cs),
+    .enb(rom_backdoor_en),
+    .injectdbiterra(0),
+    .injectdbiterrb(0),
+    .injectsbiterra(0),
+    .injectsbiterrb(0),
+    .regcea(1),
+    .regceb(1),
+    .rsta(rom_backdoor_rst),
+    .rstb(rom_backdoor_rst),
+    .sleep(0),
+    .wea(8'h0),
+    .web((rom_backdoor_addr[0] ? {rom_backdoor_we, 4'b0000} : {4'b0000, rom_backdoor_we}))
+);
+`else
 xpm_memory_tdpram #(
     .ADDR_WIDTH_A(`CALIPTRA_IMEM_ADDR_WIDTH), // DECIMAL
     .ADDR_WIDTH_B(15),              // DECIMAL
@@ -949,7 +1103,11 @@ xpm_memory_tdpram #(
     .CASCADE_HEIGHT(0),             // DECIMAL
     .CLOCKING_MODE("common_clock"), // String
     .ECC_MODE("no_ecc"),            // String
+`ifdef HTG940_FPGA
+    .MEMORY_INIT_FILE("caliptra_rom.mem"), // String
+`else
     .MEMORY_INIT_FILE("none"),      // String
+`endif
     .MEMORY_INIT_PARAM("0"),        // String
     .MEMORY_OPTIMIZATION("false"),  // String
     .MEMORY_PRIMITIVE("auto"),      // String
@@ -1001,6 +1159,7 @@ imem_inst1 (
     .wea(8'h0),
     .web(rom_backdoor_we)
 );
+`endif
 
 
 logic fifo_write_en;
@@ -1197,6 +1356,20 @@ msg_fifo_inst (
 // ========================== End Message FIFO ==========================
 
 
+// HTG940_ENTROPY_CONTROL_V1
+`ifdef HTG940_ENTROPY_CONTROL
+    assign itrng_data = board_entropy_data;
+    assign itrng_valid = board_entropy_valid;
+    assign board_entropy_req = etrng_req;
+    assign board_mcu_log_valid = axi_reset && dbg_fifo_wr_en &&
+        hwif_out.fifo_regs.dbg_fifo_push.in_data.value[8];
+    assign board_mcu_log_byte = dbg_log;
+    assign board_core_log_valid = cptra_rst_b && fifo_write_en;
+    assign board_core_log_byte = fifo_char;
+    // The board feeder owns its FIFO; legacy software FIFO is absent in this mode.
+    assign hwif_in.fifo_regs.itrng_fifo_status.itrng_fifo_empty.next = 1'b1;
+    assign hwif_in.fifo_regs.itrng_fifo_status.itrng_fifo_full.next = 1'b0;
+`else
 `ifdef CALIPTRA_INTERNAL_TRNG
 // Registers and FIFO for ITRNG entropy
 
@@ -1269,6 +1442,8 @@ trng_fifo_inst (
 // ETRNG case
     assign itrng_data  = 4'b0;
     assign itrng_valid = 1'b0;
+`endif
+
 `endif
 
 // Track how many cycles Caliptra has been out of reset for timestamping events
@@ -1387,12 +1562,12 @@ axi_if #(
     .DW(`CALIPTRA_AXI_DATA_WIDTH),
     .IW(`CALIPTRA_AXI_ID_WIDTH),
     .UW(`CALIPTRA_AXI_USER_WIDTH)
-) cptra_ss_usb_dev_s_axi_if (.clk(core_clk), .rst_n(axi_reset));
-assign cptra_ss_usb_dev_s_axi_if.awaddr=S_AXI_USB_DEV_AWADDR; assign cptra_ss_usb_dev_s_axi_if.awburst=S_AXI_USB_DEV_AWBURST; assign cptra_ss_usb_dev_s_axi_if.awsize=S_AXI_USB_DEV_AWSIZE; assign cptra_ss_usb_dev_s_axi_if.awlen=S_AXI_USB_DEV_AWLEN; assign cptra_ss_usb_dev_s_axi_if.awuser=S_AXI_USB_DEV_AWUSER; assign cptra_ss_usb_dev_s_axi_if.awid=S_AXI_USB_DEV_AWID; assign cptra_ss_usb_dev_s_axi_if.awlock=S_AXI_USB_DEV_AWLOCK; assign cptra_ss_usb_dev_s_axi_if.awvalid=S_AXI_USB_DEV_AWVALID; assign S_AXI_USB_DEV_AWREADY=cptra_ss_usb_dev_s_axi_if.awready;
-assign cptra_ss_usb_dev_s_axi_if.wdata=S_AXI_USB_DEV_WDATA; assign cptra_ss_usb_dev_s_axi_if.wstrb=S_AXI_USB_DEV_WSTRB; assign cptra_ss_usb_dev_s_axi_if.wvalid=S_AXI_USB_DEV_WVALID; assign S_AXI_USB_DEV_WREADY=cptra_ss_usb_dev_s_axi_if.wready; assign cptra_ss_usb_dev_s_axi_if.wlast=S_AXI_USB_DEV_WLAST;
-assign S_AXI_USB_DEV_BRESP=cptra_ss_usb_dev_s_axi_if.bresp; assign S_AXI_USB_DEV_BID=cptra_ss_usb_dev_s_axi_if.bid; assign S_AXI_USB_DEV_BVALID=cptra_ss_usb_dev_s_axi_if.bvalid; assign cptra_ss_usb_dev_s_axi_if.bready=S_AXI_USB_DEV_BREADY;
-assign cptra_ss_usb_dev_s_axi_if.araddr=S_AXI_USB_DEV_ARADDR; assign cptra_ss_usb_dev_s_axi_if.arburst=S_AXI_USB_DEV_ARBURST; assign cptra_ss_usb_dev_s_axi_if.arsize=S_AXI_USB_DEV_ARSIZE; assign cptra_ss_usb_dev_s_axi_if.arlen=S_AXI_USB_DEV_ARLEN; assign cptra_ss_usb_dev_s_axi_if.aruser=S_AXI_USB_DEV_ARUSER; assign cptra_ss_usb_dev_s_axi_if.arid=S_AXI_USB_DEV_ARID; assign cptra_ss_usb_dev_s_axi_if.arlock=S_AXI_USB_DEV_ARLOCK; assign cptra_ss_usb_dev_s_axi_if.arvalid=S_AXI_USB_DEV_ARVALID; assign S_AXI_USB_DEV_ARREADY=cptra_ss_usb_dev_s_axi_if.arready;
-assign S_AXI_USB_DEV_RDATA=cptra_ss_usb_dev_s_axi_if.rdata; assign S_AXI_USB_DEV_RRESP=cptra_ss_usb_dev_s_axi_if.rresp; assign S_AXI_USB_DEV_RID=cptra_ss_usb_dev_s_axi_if.rid; assign S_AXI_USB_DEV_RLAST=cptra_ss_usb_dev_s_axi_if.rlast; assign S_AXI_USB_DEV_RVALID=cptra_ss_usb_dev_s_axi_if.rvalid; assign cptra_ss_usb_dev_s_axi_if.rready=S_AXI_USB_DEV_RREADY;
+) cptra_ss_usb_combo_s_axi_if (.clk(core_clk), .rst_n(axi_reset));
+assign cptra_ss_usb_combo_s_axi_if.awaddr={12'h000, S_AXI_USB_COMBO_AWADDR[19:0]}; assign cptra_ss_usb_combo_s_axi_if.awburst=S_AXI_USB_COMBO_AWBURST; assign cptra_ss_usb_combo_s_axi_if.awsize=S_AXI_USB_COMBO_AWSIZE; assign cptra_ss_usb_combo_s_axi_if.awlen=S_AXI_USB_COMBO_AWLEN; assign cptra_ss_usb_combo_s_axi_if.awuser=S_AXI_USB_COMBO_AWUSER; assign cptra_ss_usb_combo_s_axi_if.awid=S_AXI_USB_COMBO_AWID; assign cptra_ss_usb_combo_s_axi_if.awlock=S_AXI_USB_COMBO_AWLOCK; assign cptra_ss_usb_combo_s_axi_if.awvalid=S_AXI_USB_COMBO_AWVALID; assign S_AXI_USB_COMBO_AWREADY=cptra_ss_usb_combo_s_axi_if.awready;
+assign cptra_ss_usb_combo_s_axi_if.wdata=S_AXI_USB_COMBO_WDATA; assign cptra_ss_usb_combo_s_axi_if.wstrb=S_AXI_USB_COMBO_WSTRB; assign cptra_ss_usb_combo_s_axi_if.wvalid=S_AXI_USB_COMBO_WVALID; assign S_AXI_USB_COMBO_WREADY=cptra_ss_usb_combo_s_axi_if.wready; assign cptra_ss_usb_combo_s_axi_if.wlast=S_AXI_USB_COMBO_WLAST;
+assign S_AXI_USB_COMBO_BRESP=cptra_ss_usb_combo_s_axi_if.bresp; assign S_AXI_USB_COMBO_BID=cptra_ss_usb_combo_s_axi_if.bid; assign S_AXI_USB_COMBO_BVALID=cptra_ss_usb_combo_s_axi_if.bvalid; assign cptra_ss_usb_combo_s_axi_if.bready=S_AXI_USB_COMBO_BREADY;
+assign cptra_ss_usb_combo_s_axi_if.araddr={12'h000, S_AXI_USB_COMBO_ARADDR[19:0]}; assign cptra_ss_usb_combo_s_axi_if.arburst=S_AXI_USB_COMBO_ARBURST; assign cptra_ss_usb_combo_s_axi_if.arsize=S_AXI_USB_COMBO_ARSIZE; assign cptra_ss_usb_combo_s_axi_if.arlen=S_AXI_USB_COMBO_ARLEN; assign cptra_ss_usb_combo_s_axi_if.aruser=S_AXI_USB_COMBO_ARUSER; assign cptra_ss_usb_combo_s_axi_if.arid=S_AXI_USB_COMBO_ARID; assign cptra_ss_usb_combo_s_axi_if.arlock=S_AXI_USB_COMBO_ARLOCK; assign cptra_ss_usb_combo_s_axi_if.arvalid=S_AXI_USB_COMBO_ARVALID; assign S_AXI_USB_COMBO_ARREADY=cptra_ss_usb_combo_s_axi_if.arready;
+assign S_AXI_USB_COMBO_RDATA=cptra_ss_usb_combo_s_axi_if.rdata; assign S_AXI_USB_COMBO_RRESP=cptra_ss_usb_combo_s_axi_if.rresp; assign S_AXI_USB_COMBO_RID=cptra_ss_usb_combo_s_axi_if.rid; assign S_AXI_USB_COMBO_RLAST=cptra_ss_usb_combo_s_axi_if.rlast; assign S_AXI_USB_COMBO_RVALID=cptra_ss_usb_combo_s_axi_if.rvalid; assign cptra_ss_usb_combo_s_axi_if.rready=S_AXI_USB_COMBO_RREADY;
 
 // S_AXI_USB_HOST AXI Subordinate for USB register access
 axi_if #(
@@ -1400,12 +1575,12 @@ axi_if #(
     .DW(`CALIPTRA_AXI_DATA_WIDTH),
     .IW(`CALIPTRA_AXI_ID_WIDTH),
     .UW(`CALIPTRA_AXI_USER_WIDTH)
-) cptra_ss_usb_host_s_axi_if (.clk(core_clk), .rst_n(axi_reset));
-assign cptra_ss_usb_host_s_axi_if.awaddr=S_AXI_USB_HOST_AWADDR; assign cptra_ss_usb_host_s_axi_if.awburst=S_AXI_USB_HOST_AWBURST; assign cptra_ss_usb_host_s_axi_if.awsize=S_AXI_USB_HOST_AWSIZE; assign cptra_ss_usb_host_s_axi_if.awlen=S_AXI_USB_HOST_AWLEN; assign cptra_ss_usb_host_s_axi_if.awuser=S_AXI_USB_HOST_AWUSER; assign cptra_ss_usb_host_s_axi_if.awid=S_AXI_USB_HOST_AWID; assign cptra_ss_usb_host_s_axi_if.awlock=S_AXI_USB_HOST_AWLOCK; assign cptra_ss_usb_host_s_axi_if.awvalid=S_AXI_USB_HOST_AWVALID; assign S_AXI_USB_HOST_AWREADY=cptra_ss_usb_host_s_axi_if.awready;
-assign cptra_ss_usb_host_s_axi_if.wdata=S_AXI_USB_HOST_WDATA; assign cptra_ss_usb_host_s_axi_if.wstrb=S_AXI_USB_HOST_WSTRB; assign cptra_ss_usb_host_s_axi_if.wvalid=S_AXI_USB_HOST_WVALID; assign S_AXI_USB_HOST_WREADY=cptra_ss_usb_host_s_axi_if.wready; assign cptra_ss_usb_host_s_axi_if.wlast=S_AXI_USB_HOST_WLAST;
-assign S_AXI_USB_HOST_BRESP=cptra_ss_usb_host_s_axi_if.bresp; assign S_AXI_USB_HOST_BID=cptra_ss_usb_host_s_axi_if.bid; assign S_AXI_USB_HOST_BVALID=cptra_ss_usb_host_s_axi_if.bvalid; assign cptra_ss_usb_host_s_axi_if.bready=S_AXI_USB_HOST_BREADY;
-assign cptra_ss_usb_host_s_axi_if.araddr=S_AXI_USB_HOST_ARADDR; assign cptra_ss_usb_host_s_axi_if.arburst=S_AXI_USB_HOST_ARBURST; assign cptra_ss_usb_host_s_axi_if.arsize=S_AXI_USB_HOST_ARSIZE; assign cptra_ss_usb_host_s_axi_if.arlen=S_AXI_USB_HOST_ARLEN; assign cptra_ss_usb_host_s_axi_if.aruser=S_AXI_USB_HOST_ARUSER; assign cptra_ss_usb_host_s_axi_if.arid=S_AXI_USB_HOST_ARID; assign cptra_ss_usb_host_s_axi_if.arlock=S_AXI_USB_HOST_ARLOCK; assign cptra_ss_usb_host_s_axi_if.arvalid=S_AXI_USB_HOST_ARVALID; assign S_AXI_USB_HOST_ARREADY=cptra_ss_usb_host_s_axi_if.arready;
-assign S_AXI_USB_HOST_RDATA=cptra_ss_usb_host_s_axi_if.rdata; assign S_AXI_USB_HOST_RRESP=cptra_ss_usb_host_s_axi_if.rresp; assign S_AXI_USB_HOST_RID=cptra_ss_usb_host_s_axi_if.rid; assign S_AXI_USB_HOST_RLAST=cptra_ss_usb_host_s_axi_if.rlast; assign S_AXI_USB_HOST_RVALID=cptra_ss_usb_host_s_axi_if.rvalid; assign cptra_ss_usb_host_s_axi_if.rready=S_AXI_USB_HOST_RREADY;
+) cptra_ss_usb_dev0_mem_s_axi_if (.clk(core_clk), .rst_n(axi_reset));
+assign cptra_ss_usb_dev0_mem_s_axi_if.awaddr={12'h000, S_AXI_USB_DEV0_MEM_AWADDR[19:0]}; assign cptra_ss_usb_dev0_mem_s_axi_if.awburst=S_AXI_USB_DEV0_MEM_AWBURST; assign cptra_ss_usb_dev0_mem_s_axi_if.awsize=S_AXI_USB_DEV0_MEM_AWSIZE; assign cptra_ss_usb_dev0_mem_s_axi_if.awlen=S_AXI_USB_DEV0_MEM_AWLEN; assign cptra_ss_usb_dev0_mem_s_axi_if.awuser=S_AXI_USB_DEV0_MEM_AWUSER; assign cptra_ss_usb_dev0_mem_s_axi_if.awid=S_AXI_USB_DEV0_MEM_AWID; assign cptra_ss_usb_dev0_mem_s_axi_if.awlock=S_AXI_USB_DEV0_MEM_AWLOCK; assign cptra_ss_usb_dev0_mem_s_axi_if.awvalid=S_AXI_USB_DEV0_MEM_AWVALID; assign S_AXI_USB_DEV0_MEM_AWREADY=cptra_ss_usb_dev0_mem_s_axi_if.awready;
+assign cptra_ss_usb_dev0_mem_s_axi_if.wdata=S_AXI_USB_DEV0_MEM_WDATA; assign cptra_ss_usb_dev0_mem_s_axi_if.wstrb=S_AXI_USB_DEV0_MEM_WSTRB; assign cptra_ss_usb_dev0_mem_s_axi_if.wvalid=S_AXI_USB_DEV0_MEM_WVALID; assign S_AXI_USB_DEV0_MEM_WREADY=cptra_ss_usb_dev0_mem_s_axi_if.wready; assign cptra_ss_usb_dev0_mem_s_axi_if.wlast=S_AXI_USB_DEV0_MEM_WLAST;
+assign S_AXI_USB_DEV0_MEM_BRESP=cptra_ss_usb_dev0_mem_s_axi_if.bresp; assign S_AXI_USB_DEV0_MEM_BID=cptra_ss_usb_dev0_mem_s_axi_if.bid; assign S_AXI_USB_DEV0_MEM_BVALID=cptra_ss_usb_dev0_mem_s_axi_if.bvalid; assign cptra_ss_usb_dev0_mem_s_axi_if.bready=S_AXI_USB_DEV0_MEM_BREADY;
+assign cptra_ss_usb_dev0_mem_s_axi_if.araddr={12'h000, S_AXI_USB_DEV0_MEM_ARADDR[19:0]}; assign cptra_ss_usb_dev0_mem_s_axi_if.arburst=S_AXI_USB_DEV0_MEM_ARBURST; assign cptra_ss_usb_dev0_mem_s_axi_if.arsize=S_AXI_USB_DEV0_MEM_ARSIZE; assign cptra_ss_usb_dev0_mem_s_axi_if.arlen=S_AXI_USB_DEV0_MEM_ARLEN; assign cptra_ss_usb_dev0_mem_s_axi_if.aruser=S_AXI_USB_DEV0_MEM_ARUSER; assign cptra_ss_usb_dev0_mem_s_axi_if.arid=S_AXI_USB_DEV0_MEM_ARID; assign cptra_ss_usb_dev0_mem_s_axi_if.arlock=S_AXI_USB_DEV0_MEM_ARLOCK; assign cptra_ss_usb_dev0_mem_s_axi_if.arvalid=S_AXI_USB_DEV0_MEM_ARVALID; assign S_AXI_USB_DEV0_MEM_ARREADY=cptra_ss_usb_dev0_mem_s_axi_if.arready;
+assign S_AXI_USB_DEV0_MEM_RDATA=cptra_ss_usb_dev0_mem_s_axi_if.rdata; assign S_AXI_USB_DEV0_MEM_RRESP=cptra_ss_usb_dev0_mem_s_axi_if.rresp; assign S_AXI_USB_DEV0_MEM_RID=cptra_ss_usb_dev0_mem_s_axi_if.rid; assign S_AXI_USB_DEV0_MEM_RLAST=cptra_ss_usb_dev0_mem_s_axi_if.rlast; assign S_AXI_USB_DEV0_MEM_RVALID=cptra_ss_usb_dev0_mem_s_axi_if.rvalid; assign cptra_ss_usb_dev0_mem_s_axi_if.rready=S_AXI_USB_DEV0_MEM_RREADY;
 
 // S_AXI_USB_DMA AXI Subordinate for USB register access
 axi_if #(
@@ -1413,12 +1588,66 @@ axi_if #(
     .DW(`CALIPTRA_AXI_DATA_WIDTH),
     .IW(`CALIPTRA_AXI_ID_WIDTH),
     .UW(`CALIPTRA_AXI_USER_WIDTH)
-) cptra_ss_usb_dma_s_axi_if (.clk(core_clk), .rst_n(axi_reset));
-assign cptra_ss_usb_dma_s_axi_if.awaddr=S_AXI_USB_DMA_AWADDR; assign cptra_ss_usb_dma_s_axi_if.awburst=S_AXI_USB_DMA_AWBURST; assign cptra_ss_usb_dma_s_axi_if.awsize=S_AXI_USB_DMA_AWSIZE; assign cptra_ss_usb_dma_s_axi_if.awlen=S_AXI_USB_DMA_AWLEN; assign cptra_ss_usb_dma_s_axi_if.awuser=S_AXI_USB_DMA_AWUSER; assign cptra_ss_usb_dma_s_axi_if.awid=S_AXI_USB_DMA_AWID; assign cptra_ss_usb_dma_s_axi_if.awlock=S_AXI_USB_DMA_AWLOCK; assign cptra_ss_usb_dma_s_axi_if.awvalid=S_AXI_USB_DMA_AWVALID; assign S_AXI_USB_DMA_AWREADY=cptra_ss_usb_dma_s_axi_if.awready;
-assign cptra_ss_usb_dma_s_axi_if.wdata=S_AXI_USB_DMA_WDATA; assign cptra_ss_usb_dma_s_axi_if.wstrb=S_AXI_USB_DMA_WSTRB; assign cptra_ss_usb_dma_s_axi_if.wvalid=S_AXI_USB_DMA_WVALID; assign S_AXI_USB_DMA_WREADY=cptra_ss_usb_dma_s_axi_if.wready; assign cptra_ss_usb_dma_s_axi_if.wlast=S_AXI_USB_DMA_WLAST;
-assign S_AXI_USB_DMA_BRESP=cptra_ss_usb_dma_s_axi_if.bresp; assign S_AXI_USB_DMA_BID=cptra_ss_usb_dma_s_axi_if.bid; assign S_AXI_USB_DMA_BVALID=cptra_ss_usb_dma_s_axi_if.bvalid; assign cptra_ss_usb_dma_s_axi_if.bready=S_AXI_USB_DMA_BREADY;
-assign cptra_ss_usb_dma_s_axi_if.araddr=S_AXI_USB_DMA_ARADDR; assign cptra_ss_usb_dma_s_axi_if.arburst=S_AXI_USB_DMA_ARBURST; assign cptra_ss_usb_dma_s_axi_if.arsize=S_AXI_USB_DMA_ARSIZE; assign cptra_ss_usb_dma_s_axi_if.arlen=S_AXI_USB_DMA_ARLEN; assign cptra_ss_usb_dma_s_axi_if.aruser=S_AXI_USB_DMA_ARUSER; assign cptra_ss_usb_dma_s_axi_if.arid=S_AXI_USB_DMA_ARID; assign cptra_ss_usb_dma_s_axi_if.arlock=S_AXI_USB_DMA_ARLOCK; assign cptra_ss_usb_dma_s_axi_if.arvalid=S_AXI_USB_DMA_ARVALID; assign S_AXI_USB_DMA_ARREADY=cptra_ss_usb_dma_s_axi_if.arready;
-assign S_AXI_USB_DMA_RDATA=cptra_ss_usb_dma_s_axi_if.rdata; assign S_AXI_USB_DMA_RRESP=cptra_ss_usb_dma_s_axi_if.rresp; assign S_AXI_USB_DMA_RID=cptra_ss_usb_dma_s_axi_if.rid; assign S_AXI_USB_DMA_RLAST=cptra_ss_usb_dma_s_axi_if.rlast; assign S_AXI_USB_DMA_RVALID=cptra_ss_usb_dma_s_axi_if.rvalid; assign cptra_ss_usb_dma_s_axi_if.rready=S_AXI_USB_DMA_RREADY;
+) cptra_ss_usb_dev1_csr_s_axi_if (.clk(core_clk), .rst_n(axi_reset));
+assign cptra_ss_usb_dev1_csr_s_axi_if.awaddr={12'h000, S_AXI_USB_DEV1_CSR_AWADDR[19:0]}; assign cptra_ss_usb_dev1_csr_s_axi_if.awburst=S_AXI_USB_DEV1_CSR_AWBURST; assign cptra_ss_usb_dev1_csr_s_axi_if.awsize=S_AXI_USB_DEV1_CSR_AWSIZE; assign cptra_ss_usb_dev1_csr_s_axi_if.awlen=S_AXI_USB_DEV1_CSR_AWLEN; assign cptra_ss_usb_dev1_csr_s_axi_if.awuser=S_AXI_USB_DEV1_CSR_AWUSER; assign cptra_ss_usb_dev1_csr_s_axi_if.awid=S_AXI_USB_DEV1_CSR_AWID; assign cptra_ss_usb_dev1_csr_s_axi_if.awlock=S_AXI_USB_DEV1_CSR_AWLOCK; assign cptra_ss_usb_dev1_csr_s_axi_if.awvalid=S_AXI_USB_DEV1_CSR_AWVALID; assign S_AXI_USB_DEV1_CSR_AWREADY=cptra_ss_usb_dev1_csr_s_axi_if.awready;
+assign cptra_ss_usb_dev1_csr_s_axi_if.wdata=S_AXI_USB_DEV1_CSR_WDATA; assign cptra_ss_usb_dev1_csr_s_axi_if.wstrb=S_AXI_USB_DEV1_CSR_WSTRB; assign cptra_ss_usb_dev1_csr_s_axi_if.wvalid=S_AXI_USB_DEV1_CSR_WVALID; assign S_AXI_USB_DEV1_CSR_WREADY=cptra_ss_usb_dev1_csr_s_axi_if.wready; assign cptra_ss_usb_dev1_csr_s_axi_if.wlast=S_AXI_USB_DEV1_CSR_WLAST;
+assign S_AXI_USB_DEV1_CSR_BRESP=cptra_ss_usb_dev1_csr_s_axi_if.bresp; assign S_AXI_USB_DEV1_CSR_BID=cptra_ss_usb_dev1_csr_s_axi_if.bid; assign S_AXI_USB_DEV1_CSR_BVALID=cptra_ss_usb_dev1_csr_s_axi_if.bvalid; assign cptra_ss_usb_dev1_csr_s_axi_if.bready=S_AXI_USB_DEV1_CSR_BREADY;
+assign cptra_ss_usb_dev1_csr_s_axi_if.araddr={12'h000, S_AXI_USB_DEV1_CSR_ARADDR[19:0]}; assign cptra_ss_usb_dev1_csr_s_axi_if.arburst=S_AXI_USB_DEV1_CSR_ARBURST; assign cptra_ss_usb_dev1_csr_s_axi_if.arsize=S_AXI_USB_DEV1_CSR_ARSIZE; assign cptra_ss_usb_dev1_csr_s_axi_if.arlen=S_AXI_USB_DEV1_CSR_ARLEN; assign cptra_ss_usb_dev1_csr_s_axi_if.aruser=S_AXI_USB_DEV1_CSR_ARUSER; assign cptra_ss_usb_dev1_csr_s_axi_if.arid=S_AXI_USB_DEV1_CSR_ARID; assign cptra_ss_usb_dev1_csr_s_axi_if.arlock=S_AXI_USB_DEV1_CSR_ARLOCK; assign cptra_ss_usb_dev1_csr_s_axi_if.arvalid=S_AXI_USB_DEV1_CSR_ARVALID; assign S_AXI_USB_DEV1_CSR_ARREADY=cptra_ss_usb_dev1_csr_s_axi_if.arready;
+assign S_AXI_USB_DEV1_CSR_RDATA=cptra_ss_usb_dev1_csr_s_axi_if.rdata; assign S_AXI_USB_DEV1_CSR_RRESP=cptra_ss_usb_dev1_csr_s_axi_if.rresp; assign S_AXI_USB_DEV1_CSR_RID=cptra_ss_usb_dev1_csr_s_axi_if.rid; assign S_AXI_USB_DEV1_CSR_RLAST=cptra_ss_usb_dev1_csr_s_axi_if.rlast; assign S_AXI_USB_DEV1_CSR_RVALID=cptra_ss_usb_dev1_csr_s_axi_if.rvalid; assign cptra_ss_usb_dev1_csr_s_axi_if.rready=S_AXI_USB_DEV1_CSR_RREADY;
+
+// S_AXI_USB_DMA AXI Subordinate for USB register access
+axi_if #(
+    .AW(32),
+    .DW(`CALIPTRA_AXI_DATA_WIDTH),
+    .IW(`CALIPTRA_AXI_ID_WIDTH),
+    .UW(`CALIPTRA_AXI_USER_WIDTH)
+) cptra_ss_usb_dev1_mem_s_axi_if (.clk(core_clk), .rst_n(axi_reset));
+assign cptra_ss_usb_dev1_mem_s_axi_if.awaddr={12'h000, S_AXI_USB_DEV1_MEM_AWADDR[19:0]}; assign cptra_ss_usb_dev1_mem_s_axi_if.awburst=S_AXI_USB_DEV1_MEM_AWBURST; assign cptra_ss_usb_dev1_mem_s_axi_if.awsize=S_AXI_USB_DEV1_MEM_AWSIZE; assign cptra_ss_usb_dev1_mem_s_axi_if.awlen=S_AXI_USB_DEV1_MEM_AWLEN; assign cptra_ss_usb_dev1_mem_s_axi_if.awuser=S_AXI_USB_DEV1_MEM_AWUSER; assign cptra_ss_usb_dev1_mem_s_axi_if.awid=S_AXI_USB_DEV1_MEM_AWID; assign cptra_ss_usb_dev1_mem_s_axi_if.awlock=S_AXI_USB_DEV1_MEM_AWLOCK; assign cptra_ss_usb_dev1_mem_s_axi_if.awvalid=S_AXI_USB_DEV1_MEM_AWVALID; assign S_AXI_USB_DEV1_MEM_AWREADY=cptra_ss_usb_dev1_mem_s_axi_if.awready;
+assign cptra_ss_usb_dev1_mem_s_axi_if.wdata=S_AXI_USB_DEV1_MEM_WDATA; assign cptra_ss_usb_dev1_mem_s_axi_if.wstrb=S_AXI_USB_DEV1_MEM_WSTRB; assign cptra_ss_usb_dev1_mem_s_axi_if.wvalid=S_AXI_USB_DEV1_MEM_WVALID; assign S_AXI_USB_DEV1_MEM_WREADY=cptra_ss_usb_dev1_mem_s_axi_if.wready; assign cptra_ss_usb_dev1_mem_s_axi_if.wlast=S_AXI_USB_DEV1_MEM_WLAST;
+assign S_AXI_USB_DEV1_MEM_BRESP=cptra_ss_usb_dev1_mem_s_axi_if.bresp; assign S_AXI_USB_DEV1_MEM_BID=cptra_ss_usb_dev1_mem_s_axi_if.bid; assign S_AXI_USB_DEV1_MEM_BVALID=cptra_ss_usb_dev1_mem_s_axi_if.bvalid; assign cptra_ss_usb_dev1_mem_s_axi_if.bready=S_AXI_USB_DEV1_MEM_BREADY;
+assign cptra_ss_usb_dev1_mem_s_axi_if.araddr={12'h000, S_AXI_USB_DEV1_MEM_ARADDR[19:0]}; assign cptra_ss_usb_dev1_mem_s_axi_if.arburst=S_AXI_USB_DEV1_MEM_ARBURST; assign cptra_ss_usb_dev1_mem_s_axi_if.arsize=S_AXI_USB_DEV1_MEM_ARSIZE; assign cptra_ss_usb_dev1_mem_s_axi_if.arlen=S_AXI_USB_DEV1_MEM_ARLEN; assign cptra_ss_usb_dev1_mem_s_axi_if.aruser=S_AXI_USB_DEV1_MEM_ARUSER; assign cptra_ss_usb_dev1_mem_s_axi_if.arid=S_AXI_USB_DEV1_MEM_ARID; assign cptra_ss_usb_dev1_mem_s_axi_if.arlock=S_AXI_USB_DEV1_MEM_ARLOCK; assign cptra_ss_usb_dev1_mem_s_axi_if.arvalid=S_AXI_USB_DEV1_MEM_ARVALID; assign S_AXI_USB_DEV1_MEM_ARREADY=cptra_ss_usb_dev1_mem_s_axi_if.arready;
+assign S_AXI_USB_DEV1_MEM_RDATA=cptra_ss_usb_dev1_mem_s_axi_if.rdata; assign S_AXI_USB_DEV1_MEM_RRESP=cptra_ss_usb_dev1_mem_s_axi_if.rresp; assign S_AXI_USB_DEV1_MEM_RID=cptra_ss_usb_dev1_mem_s_axi_if.rid; assign S_AXI_USB_DEV1_MEM_RLAST=cptra_ss_usb_dev1_mem_s_axi_if.rlast; assign S_AXI_USB_DEV1_MEM_RVALID=cptra_ss_usb_dev1_mem_s_axi_if.rvalid; assign cptra_ss_usb_dev1_mem_s_axi_if.rready=S_AXI_USB_DEV1_MEM_RREADY;
+
+// Unused AXI sidebands are deterministic for COMBO.
+assign cptra_ss_usb_combo_s_axi_if.awcache = '0;
+assign cptra_ss_usb_combo_s_axi_if.awprot = '0;
+assign cptra_ss_usb_combo_s_axi_if.awqos = '0;
+assign cptra_ss_usb_combo_s_axi_if.awregion = '0;
+assign cptra_ss_usb_combo_s_axi_if.wuser = '0;
+assign cptra_ss_usb_combo_s_axi_if.arcache = '0;
+assign cptra_ss_usb_combo_s_axi_if.arprot = '0;
+assign cptra_ss_usb_combo_s_axi_if.arqos = '0;
+assign cptra_ss_usb_combo_s_axi_if.arregion = '0;
+// Unused AXI sidebands are deterministic for DEV0_MEM.
+assign cptra_ss_usb_dev0_mem_s_axi_if.awcache = '0;
+assign cptra_ss_usb_dev0_mem_s_axi_if.awprot = '0;
+assign cptra_ss_usb_dev0_mem_s_axi_if.awqos = '0;
+assign cptra_ss_usb_dev0_mem_s_axi_if.awregion = '0;
+assign cptra_ss_usb_dev0_mem_s_axi_if.wuser = '0;
+assign cptra_ss_usb_dev0_mem_s_axi_if.arcache = '0;
+assign cptra_ss_usb_dev0_mem_s_axi_if.arprot = '0;
+assign cptra_ss_usb_dev0_mem_s_axi_if.arqos = '0;
+assign cptra_ss_usb_dev0_mem_s_axi_if.arregion = '0;
+// Unused AXI sidebands are deterministic for DEV1_CSR.
+assign cptra_ss_usb_dev1_csr_s_axi_if.awcache = '0;
+assign cptra_ss_usb_dev1_csr_s_axi_if.awprot = '0;
+assign cptra_ss_usb_dev1_csr_s_axi_if.awqos = '0;
+assign cptra_ss_usb_dev1_csr_s_axi_if.awregion = '0;
+assign cptra_ss_usb_dev1_csr_s_axi_if.wuser = '0;
+assign cptra_ss_usb_dev1_csr_s_axi_if.arcache = '0;
+assign cptra_ss_usb_dev1_csr_s_axi_if.arprot = '0;
+assign cptra_ss_usb_dev1_csr_s_axi_if.arqos = '0;
+assign cptra_ss_usb_dev1_csr_s_axi_if.arregion = '0;
+// Unused AXI sidebands are deterministic for DEV1_MEM.
+assign cptra_ss_usb_dev1_mem_s_axi_if.awcache = '0;
+assign cptra_ss_usb_dev1_mem_s_axi_if.awprot = '0;
+assign cptra_ss_usb_dev1_mem_s_axi_if.awqos = '0;
+assign cptra_ss_usb_dev1_mem_s_axi_if.awregion = '0;
+assign cptra_ss_usb_dev1_mem_s_axi_if.wuser = '0;
+assign cptra_ss_usb_dev1_mem_s_axi_if.arcache = '0;
+assign cptra_ss_usb_dev1_mem_s_axi_if.arprot = '0;
+assign cptra_ss_usb_dev1_mem_s_axi_if.arqos = '0;
+assign cptra_ss_usb_dev1_mem_s_axi_if.arregion = '0;
 
 // MCU ROM
 axi_mem_if #(
@@ -1430,6 +1659,89 @@ axi_mem_if #(
 );
 
 // Dual port memory for MCU ROM. A is to SS, B is backdoor
+`ifdef HTG940_FPGA
+
+// HTG940_SYMMETRIC_ROM_PORTS: mcu_rom
+logic [63:0] htg_mcu_rom_rdata;
+logic htg_mcu_rom_upper_q;
+
+always_ff @(posedge core_clk) begin
+    if (mcu_rom_backdoor_rst)
+        htg_mcu_rom_upper_q <= 1'b0;
+    else if (mcu_rom_backdoor_en && !(|mcu_rom_backdoor_we))
+        htg_mcu_rom_upper_q <= mcu_rom_backdoor_addr[0];
+end
+
+assign mcu_rom_backdoor_dout = htg_mcu_rom_upper_q
+    ? htg_mcu_rom_rdata[63:32]
+    : htg_mcu_rom_rdata[31:0];
+
+xpm_memory_tdpram #(
+    .ADDR_WIDTH_A(32),              // DECIMAL
+    .ADDR_WIDTH_B(32),              // DECIMAL
+    .AUTO_SLEEP_TIME(0),            // DECIMAL
+    .BYTE_WRITE_WIDTH_A(8),        // DECIMAL
+    .BYTE_WRITE_WIDTH_B(8),         // DECIMAL
+    .CASCADE_HEIGHT(0),             // DECIMAL
+    .CLOCKING_MODE("common_clock"), // String
+    .ECC_MODE("no_ecc"),            // String
+`ifdef HTG940_FPGA
+    .MEMORY_INIT_FILE("mcu_rom.mem"), // String
+`else
+    .MEMORY_INIT_FILE("none"),      // String
+`endif
+    .MEMORY_INIT_PARAM("0"),        // String
+    .MEMORY_OPTIMIZATION("false"),  // String
+    .MEMORY_PRIMITIVE("block"),      // String
+    .MEMORY_SIZE(128*1024*8),       // DECIMAL
+    .MESSAGE_CONTROL(0),            // DECIMAL
+    .READ_DATA_WIDTH_A(64),         // DECIMAL
+    .READ_DATA_WIDTH_B(64),         // DECIMAL
+    .READ_LATENCY_A(1),             // DECIMAL
+    .READ_LATENCY_B(1),             // DECIMAL
+    .READ_RESET_VALUE_A("0"),       // String
+    .READ_RESET_VALUE_B("0"),       // String
+    .RST_MODE_A("SYNC"),            // String
+    .RST_MODE_B("SYNC"),            // String
+    .SIM_ASSERT_CHK(0),             // DECIMAL; 0=disable simulation messages, 1=enable simulation messages
+    .USE_EMBEDDED_CONSTRAINT(0),    // DECIMAL
+    .USE_MEM_INIT(1),               // DECIMAL
+    .USE_MEM_INIT_MMI(1),           // DECIMAL
+    .WAKEUP_TIME("disable_sleep"),  // String
+    .WRITE_DATA_WIDTH_A(64),        // DECIMAL
+    .WRITE_DATA_WIDTH_B(64),        // DECIMAL
+    .WRITE_MODE_A("no_change"),     // String
+    .WRITE_MODE_B("no_change"),     // String
+    .WRITE_PROTECT(1)               // DECIMAL
+)
+mcu_rom (
+    .dbiterra(),
+    .dbiterrb(),
+    .douta(mcu_rom_mem_export_if.resp.rdata),
+    .doutb(htg_mcu_rom_rdata),
+    .sbiterra(),
+    .sbiterrb(),
+    .addra(mcu_rom_mem_export_if.req.addr),
+    .addrb((mcu_rom_backdoor_addr >> 1)),
+    .clka(core_clk),
+    .clkb(mcu_rom_backdoor_clk),
+    .dina(mcu_rom_mem_export_if.req.wdata),
+    .dinb({mcu_rom_backdoor_din, mcu_rom_backdoor_din}),
+    .ena(mcu_rom_mem_export_if.req.cs),
+    .enb(mcu_rom_backdoor_en),
+    .injectdbiterra(0),
+    .injectdbiterrb(0),
+    .injectsbiterra(0),
+    .injectsbiterrb(0),
+    .regcea(1),
+    .regceb(1),
+    .rsta(mcu_rom_backdoor_rst),
+    .rstb(mcu_rom_backdoor_rst),
+    .sleep(0),
+    .wea({8{mcu_rom_mem_export_if.req.we}}),
+    .web((mcu_rom_backdoor_addr[0] ? {mcu_rom_backdoor_we, 4'b0000} : {4'b0000, mcu_rom_backdoor_we}))
+);
+`else
 xpm_memory_tdpram #(
     .ADDR_WIDTH_A(32),              // DECIMAL
     .ADDR_WIDTH_B(32),              // DECIMAL
@@ -1439,7 +1751,11 @@ xpm_memory_tdpram #(
     .CASCADE_HEIGHT(0),             // DECIMAL
     .CLOCKING_MODE("common_clock"), // String
     .ECC_MODE("no_ecc"),            // String
+`ifdef HTG940_FPGA
+    .MEMORY_INIT_FILE("mcu_rom.mem"), // String
+`else
     .MEMORY_INIT_FILE("none"),      // String
+`endif
     .MEMORY_INIT_PARAM("0"),        // String
     .MEMORY_OPTIMIZATION("false"),  // String
     .MEMORY_PRIMITIVE("auto"),      // String
@@ -1491,6 +1807,7 @@ mcu_rom (
     .wea(mcu_rom_mem_export_if.req.we),
     .web(mcu_rom_backdoor_we)
 );
+`endif
 
     mci_mcu_sram_if #(
         .ADDR_WIDTH(19) // 512 KB just in case even though this might only need to be 17
@@ -2206,93 +2523,124 @@ mcu_rom (
          hwif_out.secondary_flash_ctrl_regs.FL_INTERRUPT_ENABLE.EVENT.value}
     );
 
-    // Spare I3C core
+      // Spare I3C core
     logic spare_i3c_irq_o;
-    assign hwif_in.interface_regs.spare_i3c_control_sts.irq_o.next = spare_i3c_irq_o;
+    assign hwif_in.interface_regs.spare_i3c_control_sts.irq_o.next =
+        spare_i3c_irq_o;
 
+    // Preserve the complete ID width presented by the FPGA AXI fabric.
+    localparam int SpareI3cIdWidth = $bits(S_AXI_I3C_SPARE_AWID);
+
+    axi_if #(
+        .AW(32),
+        .DW(32),
+        .IW(SpareI3cIdWidth),
+        .UW(32)
+    ) spare_i3c_axi_if (
+        .clk(i3c_clk),
+        .rst_n(axi_reset)
+    );
+
+    // Read address channel
+    assign spare_i3c_axi_if.arvalid  = S_AXI_I3C_SPARE_ARVALID;
+    assign spare_i3c_axi_if.arid     = S_AXI_I3C_SPARE_ARID;
+    assign spare_i3c_axi_if.araddr   = S_AXI_I3C_SPARE_ARADDR;
+    assign spare_i3c_axi_if.arsize   = S_AXI_I3C_SPARE_ARSIZE;
+    assign spare_i3c_axi_if.aruser   = S_AXI_I3C_SPARE_ARUSER;
+    assign spare_i3c_axi_if.arlen    = S_AXI_I3C_SPARE_ARLEN;
+    assign spare_i3c_axi_if.arburst  = S_AXI_I3C_SPARE_ARBURST;
+    assign spare_i3c_axi_if.arlock   = S_AXI_I3C_SPARE_ARLOCK;
+    assign spare_i3c_axi_if.arcache  = '0;
+    assign spare_i3c_axi_if.arprot   = '0;
+    assign spare_i3c_axi_if.arqos    = '0;
+    assign spare_i3c_axi_if.arregion = '0;
+    assign S_AXI_I3C_SPARE_ARREADY  = spare_i3c_axi_if.arready;
+
+    // Read response channel
+    assign S_AXI_I3C_SPARE_RVALID = spare_i3c_axi_if.rvalid;
+    assign S_AXI_I3C_SPARE_RID    = spare_i3c_axi_if.rid;
+    assign S_AXI_I3C_SPARE_RDATA  = spare_i3c_axi_if.rdata;
+    assign S_AXI_I3C_SPARE_RRESP  = spare_i3c_axi_if.rresp;
+    assign S_AXI_I3C_SPARE_RLAST  = spare_i3c_axi_if.rlast;
+    assign spare_i3c_axi_if.rready = S_AXI_I3C_SPARE_RREADY;
+
+    // Write address channel
+    assign spare_i3c_axi_if.awvalid  = S_AXI_I3C_SPARE_AWVALID;
+    assign spare_i3c_axi_if.awid     = S_AXI_I3C_SPARE_AWID;
+    assign spare_i3c_axi_if.awaddr   = S_AXI_I3C_SPARE_AWADDR;
+    assign spare_i3c_axi_if.awsize   = S_AXI_I3C_SPARE_AWSIZE;
+    assign spare_i3c_axi_if.awuser   = S_AXI_I3C_SPARE_AWUSER;
+    assign spare_i3c_axi_if.awlen    = S_AXI_I3C_SPARE_AWLEN;
+    assign spare_i3c_axi_if.awburst  = S_AXI_I3C_SPARE_AWBURST;
+    assign spare_i3c_axi_if.awlock   = S_AXI_I3C_SPARE_AWLOCK;
+    assign spare_i3c_axi_if.awcache  = '0;
+    assign spare_i3c_axi_if.awprot   = '0;
+    assign spare_i3c_axi_if.awqos    = '0;
+    assign spare_i3c_axi_if.awregion = '0;
+    assign S_AXI_I3C_SPARE_AWREADY  = spare_i3c_axi_if.awready;
+
+    // Write data channel
+    assign spare_i3c_axi_if.wvalid = S_AXI_I3C_SPARE_WVALID;
+    assign spare_i3c_axi_if.wdata  = S_AXI_I3C_SPARE_WDATA;
+    assign spare_i3c_axi_if.wstrb  = S_AXI_I3C_SPARE_WSTRB;
+    assign spare_i3c_axi_if.wlast  = S_AXI_I3C_SPARE_WLAST;
+    assign spare_i3c_axi_if.wuser  = '0;
+    assign S_AXI_I3C_SPARE_WREADY = spare_i3c_axi_if.wready;
+
+    // Write response channel
+    assign S_AXI_I3C_SPARE_BVALID = spare_i3c_axi_if.bvalid;
+    assign S_AXI_I3C_SPARE_BRESP  = spare_i3c_axi_if.bresp;
+    assign S_AXI_I3C_SPARE_BID    = spare_i3c_axi_if.bid;
+    assign spare_i3c_axi_if.bready = S_AXI_I3C_SPARE_BREADY;
+
+    // The existing external interface does not expose RUSER/BUSER.
+    // Leave those response fields unconsumed.
+
+`ifdef AXI_ID_FILTERING
     logic [31:0] priv_ids [4];
-    assign priv_ids[0] = 32'd0;
-    assign priv_ids[1] = 32'd0;
-    assign priv_ids[2] = 32'd0;
-    assign priv_ids[3] = 32'd0;
+    assign priv_ids[0] = '0;
+    assign priv_ids[1] = '0;
+    assign priv_ids[2] = '0;
+    assign priv_ids[3] = '0;
+`endif
 
     i3c_wrapper #(
         .AxiDataWidth(32),
         .AxiAddrWidth(32),
         .AxiUserWidth(32),
-        .AxiIdWidth  (8)
+        .AxiIdWidth(SpareI3cIdWidth)
+`ifdef AXI_ID_FILTERING
+        , .NumPrivIds(4)
+`endif
     ) i3c (
-        .clk_i                          (i3c_clk),
-        .rst_ni                         (axi_reset),
-    
-        // Read Address Channel
-        .arvalid_i   (S_AXI_I3C_SPARE_ARVALID),
-        .arready_o   (S_AXI_I3C_SPARE_ARREADY),
-        .arid_i      (S_AXI_I3C_SPARE_ARID),
-        .araddr_i    (S_AXI_I3C_SPARE_ARADDR),
-        .arsize_i    (S_AXI_I3C_SPARE_ARSIZE),
-        .aruser_i    (S_AXI_I3C_SPARE_ARUSER),
-        .arlen_i     (S_AXI_I3C_SPARE_ARLEN),
-        .arburst_i   (S_AXI_I3C_SPARE_ARBURST),
-        .arlock_i    (S_AXI_I3C_SPARE_ARLOCK),
+        .clk_i(i3c_clk),
+        .rst_ni(axi_reset),
 
-        // Read Data Channel
-        .rvalid_o    (S_AXI_I3C_SPARE_RVALID),
-        .rready_i    (S_AXI_I3C_SPARE_RREADY),
-        .rid_o       (S_AXI_I3C_SPARE_RID),
-        .rdata_o     (S_AXI_I3C_SPARE_RDATA),
-        .rresp_o     (S_AXI_I3C_SPARE_RRESP),
-        .rlast_o     (S_AXI_I3C_SPARE_RLAST),
+        .s_axi_w_if(spare_i3c_axi_if),
+        .s_axi_r_if(spare_i3c_axi_if),
 
-        // Write Address Channel
-        .awvalid_i   (S_AXI_I3C_SPARE_AWVALID),
-        .awready_o   (S_AXI_I3C_SPARE_AWREADY),
-        .awid_i      (S_AXI_I3C_SPARE_AWID),
-        .awaddr_i    (S_AXI_I3C_SPARE_AWADDR),
-        .awsize_i    (S_AXI_I3C_SPARE_AWSIZE),
-        .awuser_i    (S_AXI_I3C_SPARE_AWUSER),
-        .awlen_i     (S_AXI_I3C_SPARE_AWLEN),
-        .awburst_i   (S_AXI_I3C_SPARE_AWBURST),
-        .awlock_i    (S_AXI_I3C_SPARE_AWLOCK),
+        .scl_i(spare_i3c_core_scl),
+        .sda_i(spare_i3c_core_sda),
+        .scl_o(),
+        .sda_o(spare_i3c_core_sda_o),
+        .scl_oe(),
+        .sda_oe(spare_i3c_core_sda_oe),
+        .sel_od_pp_o(spare_i3c_core_sel_od_pp_o),
 
-        // Write Data Channel
-        .wvalid_i    (S_AXI_I3C_SPARE_WVALID),
-        .wuser_i     (/* ??? see note below */),
-        .wready_o    (S_AXI_I3C_SPARE_WREADY),
-        .wdata_i     (S_AXI_I3C_SPARE_WDATA),
-        .wstrb_i     (S_AXI_I3C_SPARE_WSTRB),
-        .wlast_i     (S_AXI_I3C_SPARE_WLAST),
+        .recovery_payload_available_o(
+            hwif_in.interface_regs.spare_i3c_control_sts.recovery_payload_available_o.next),
+        .recovery_image_activated_o(
+            hwif_in.interface_regs.spare_i3c_control_sts.recovery_image_activated_o.next),
 
-        // Write Response Channel
-        .bvalid_o    (S_AXI_I3C_SPARE_BVALID),
-        .bready_i    (S_AXI_I3C_SPARE_BREADY),
-        .bresp_o     (S_AXI_I3C_SPARE_BRESP),
-        .bid_o       (S_AXI_I3C_SPARE_BID),
-        .buser_o     (/* ??? see note below */),
-    
-        // I3C Signals
-        .scl_i                          (spare_i3c_core_scl),
-        .sda_i                          (spare_i3c_core_sda),
-        .scl_o                          (),
-        .sda_o                          (spare_i3c_core_sda_o),
-        .scl_oe                         (),
-        .sda_oe                         (spare_i3c_core_sda_oe),
-    
-        // Additional signals
-        .sel_od_pp_o                    (spare_i3c_core_sel_od_pp_o),
+        .peripheral_reset_o(),
+        .peripheral_reset_done_i(1'b1),
+        .escalated_reset_o(),
+        .irq_o(spare_i3c_irq_o)
 
-        .recovery_payload_available_o   (hwif_in.interface_regs.spare_i3c_control_sts.recovery_payload_available_o.next),
-        .recovery_image_activated_o     (hwif_in.interface_regs.spare_i3c_control_sts.recovery_image_activated_o.next),
-        .peripheral_reset_o             (),
-        .peripheral_reset_done_i        (1'b1),
-        .escalated_reset_o              (),
-
-        // Interrupts
-        .irq_o                          (spare_i3c_irq_o),
-
-        // id filtering
-        .disable_id_filtering_i         (1'b1),
-        .priv_ids_i                     (priv_ids)    
+`ifdef AXI_ID_FILTERING
+        , .disable_id_filtering_i(1'b1),
+        .priv_ids_i(priv_ids)
+`endif
     );
 
 
@@ -2301,11 +2649,28 @@ assign M_AXI_MCU_LSU_AWCACHE=4'h0; assign M_AXI_MCU_LSU_ARCACHE=4'h0; assign M_A
 assign M_AXI_MCU_IFU_AWCACHE=4'h0; assign M_AXI_MCU_IFU_ARCACHE=4'h0; assign M_AXI_MCU_IFU_AWPROT=3'h0; assign M_AXI_MCU_IFU_ARPROT=3'h0; assign M_AXI_MCU_IFU_AWREGION=4'h0; assign M_AXI_MCU_IFU_ARREGION=4'h0; assign M_AXI_MCU_IFU_AWQOS=4'h0; assign M_AXI_MCU_IFU_ARQOS=4'h0;
 assign M_AXI_MCU_SB_AWCACHE=4'h0; assign M_AXI_MCU_SB_ARCACHE=4'h0; assign M_AXI_MCU_SB_AWPROT=3'h0; assign M_AXI_MCU_SB_ARPROT=3'h0; assign M_AXI_MCU_SB_AWREGION=4'h0; assign M_AXI_MCU_SB_ARREGION=4'h0; assign M_AXI_MCU_SB_AWQOS=4'h0; assign M_AXI_MCU_SB_ARQOS=4'h0;
 
-// USB PHY/data side stays inside wrapper for register-only AXI bring-up.
+// USB SRAM banks: 8192 x 64 bits = 64 KiB per device.
+localparam int HTG_USB_RAM_AW = 13;
 logic usb_recovery_payload_available;
 logic usb_recovery_image_activated;
-logic [63:0] usb_mem_q;
-assign usb_mem_q = 64'h0;
+logic [63:0] usb_dev0_mem_q, usb_dev0_mem_d, usb_dev0_mem_bsel;
+logic usb_dev0_mem_cs, usb_dev0_mem_web;
+logic [HTG_USB_RAM_AW-1:0] usb_dev0_mem_a;
+usb_bram_64x512 #(.ADDR_WIDTH(HTG_USB_RAM_AW)) u_usb_dev0_bram (
+    .usb_clk(core_clk), .usb_cs(usb_dev0_mem_cs),
+    .usb_addr(usb_dev0_mem_a), .usb_we_n(usb_dev0_mem_web),
+    .usb_bsel(usb_dev0_mem_bsel), .usb_wdata(usb_dev0_mem_d),
+    .usb_rdata(usb_dev0_mem_q)
+);
+logic [63:0] usb_dev1_mem_q, usb_dev1_mem_d, usb_dev1_mem_bsel;
+logic usb_dev1_mem_cs, usb_dev1_mem_web;
+logic [HTG_USB_RAM_AW-1:0] usb_dev1_mem_a;
+usb_bram_64x512 #(.ADDR_WIDTH(HTG_USB_RAM_AW)) u_usb_dev1_bram (
+    .usb_clk(core_clk), .usb_cs(usb_dev1_mem_cs),
+    .usb_addr(usb_dev1_mem_a), .usb_we_n(usb_dev1_mem_web),
+    .usb_bsel(usb_dev1_mem_bsel), .usb_wdata(usb_dev1_mem_d),
+    .usb_rdata(usb_dev1_mem_q)
+);
 
 // Looping back resets
 logic cptra_rst_b;
@@ -2331,18 +2696,138 @@ always_ff @(posedge core_clk or negedge hwif_out.interface_regs.control.cptra_ss
 end
 assign hwif_in.interface_regs.ocp_lock_control_reg.rdy.next = ocp_lock_rdy;
 
-// TODO: Unconnected signals issue: https://github.com/chipsalliance/caliptra-mcu-sw/issues/370
-caliptra_ss_top #(
-    .MCU_MBOX0_SIZE_KB(16),
-    .MCU_MBOX1_SIZE_KB(16)
-) caliptra_ss_top_0 (
 
+// USB ULPI signals
+logic [7:0] usb_ulpi_rxdata;
+logic [7:0] usb_ulpi_txdata;
+logic       usb_ulpi_txenable;
+
+//logic usb_vbuscomp_on;
+//logic usb_chrgvbus;
+//logic usb_dischrgvbus;
+
+assign USB_ULPI_DATA =
+    usb_ulpi_txenable ? usb_ulpi_txdata : 8'bz;
+
+assign usb_ulpi_rxdata = USB_ULPI_DATA;
+
+// TODO: Unconnected signals issue: https://github.com/chipsalliance/caliptra-mcu-sw/issues/370
+// HTG940_UNUSED_SPI_UART_AXI
+
+axi_if #(
+    .AW(axi_struct_pkg::TLUL_AXI_STRUCT_ADDR_WIDTH),
+    .DW(`AXI_DATA_WIDTH),
+    .IW(`AXI_ID_WIDTH),
+    .UW(`AXI_USER_WIDTH)
+) htg940_unused_spi_host_axi (
+    .clk(core_clk),
+    .rst_n(axi_reset)
+);
+assign htg940_unused_spi_host_axi.awid = '0;
+assign htg940_unused_spi_host_axi.awaddr = '0;
+assign htg940_unused_spi_host_axi.awlen = '0;
+assign htg940_unused_spi_host_axi.awsize = '0;
+assign htg940_unused_spi_host_axi.awburst = '0;
+assign htg940_unused_spi_host_axi.awlock = '0;
+assign htg940_unused_spi_host_axi.awcache = '0;
+assign htg940_unused_spi_host_axi.awprot = '0;
+assign htg940_unused_spi_host_axi.awqos = '0;
+assign htg940_unused_spi_host_axi.awregion = '0;
+assign htg940_unused_spi_host_axi.awuser = '0;
+assign htg940_unused_spi_host_axi.awvalid = '0;
+assign htg940_unused_spi_host_axi.wdata = '0;
+assign htg940_unused_spi_host_axi.wstrb = '0;
+assign htg940_unused_spi_host_axi.wlast = '0;
+assign htg940_unused_spi_host_axi.wuser = '0;
+assign htg940_unused_spi_host_axi.wvalid = '0;
+assign htg940_unused_spi_host_axi.bready = '0;
+assign htg940_unused_spi_host_axi.arid = '0;
+assign htg940_unused_spi_host_axi.araddr = '0;
+assign htg940_unused_spi_host_axi.arlen = '0;
+assign htg940_unused_spi_host_axi.arsize = '0;
+assign htg940_unused_spi_host_axi.arburst = '0;
+assign htg940_unused_spi_host_axi.arlock = '0;
+assign htg940_unused_spi_host_axi.arcache = '0;
+assign htg940_unused_spi_host_axi.arprot = '0;
+assign htg940_unused_spi_host_axi.arqos = '0;
+assign htg940_unused_spi_host_axi.arregion = '0;
+assign htg940_unused_spi_host_axi.aruser = '0;
+assign htg940_unused_spi_host_axi.arvalid = '0;
+assign htg940_unused_spi_host_axi.rready = '0;
+
+axi_if #(
+    .AW(axi_struct_pkg::TLUL_AXI_STRUCT_ADDR_WIDTH),
+    .DW(`AXI_DATA_WIDTH),
+    .IW(`AXI_ID_WIDTH),
+    .UW(`AXI_USER_WIDTH)
+) htg940_unused_uart_axi (
+    .clk(core_clk),
+    .rst_n(axi_reset)
+);
+assign htg940_unused_uart_axi.awid = '0;
+assign htg940_unused_uart_axi.awaddr = '0;
+assign htg940_unused_uart_axi.awlen = '0;
+assign htg940_unused_uart_axi.awsize = '0;
+assign htg940_unused_uart_axi.awburst = '0;
+assign htg940_unused_uart_axi.awlock = '0;
+assign htg940_unused_uart_axi.awcache = '0;
+assign htg940_unused_uart_axi.awprot = '0;
+assign htg940_unused_uart_axi.awqos = '0;
+assign htg940_unused_uart_axi.awregion = '0;
+assign htg940_unused_uart_axi.awuser = '0;
+assign htg940_unused_uart_axi.awvalid = '0;
+assign htg940_unused_uart_axi.wdata = '0;
+assign htg940_unused_uart_axi.wstrb = '0;
+assign htg940_unused_uart_axi.wlast = '0;
+assign htg940_unused_uart_axi.wuser = '0;
+assign htg940_unused_uart_axi.wvalid = '0;
+assign htg940_unused_uart_axi.bready = '0;
+assign htg940_unused_uart_axi.arid = '0;
+assign htg940_unused_uart_axi.araddr = '0;
+assign htg940_unused_uart_axi.arlen = '0;
+assign htg940_unused_uart_axi.arsize = '0;
+assign htg940_unused_uart_axi.arburst = '0;
+assign htg940_unused_uart_axi.arlock = '0;
+assign htg940_unused_uart_axi.arcache = '0;
+assign htg940_unused_uart_axi.arprot = '0;
+assign htg940_unused_uart_axi.arqos = '0;
+assign htg940_unused_uart_axi.arregion = '0;
+assign htg940_unused_uart_axi.aruser = '0;
+assign htg940_unused_uart_axi.arvalid = '0;
+assign htg940_unused_uart_axi.rready = '0;
+
+caliptra_ss_top #(
+    .USB_C_DEV0_RAM_ADDRWIDTH(HTG_USB_RAM_AW),
+    .USB_C_DEV1_RAM_ADDRWIDTH(HTG_USB_RAM_AW),
+    .MCU_MBOX0_SIZE_KB(16),
+    .MCU_MBOX1_SIZE_KB(16),
+    // SPI/UART are not part of the first HTG-940 platform image. They can be
+    // enabled after their AXI and physical ports are added to the board top.
+    .SPI_HOST_ENA(0),
+    .UART_ENA(0)
+) caliptra_ss_top_0 (
+    .cptra_ss_spi_host_s_axi_if_w_sub(htg940_unused_spi_host_axi.w_sub),
+    .cptra_ss_spi_host_s_axi_if_r_sub(htg940_unused_spi_host_axi.r_sub),
+    .cptra_ss_uart_s_axi_if_w_sub(htg940_unused_uart_axi.w_sub),
+    .cptra_ss_uart_s_axi_if_r_sub(htg940_unused_uart_axi.r_sub),
+
+
+    .cptra_ss_sd_i(4'h0),
+    .cptra_ss_uart_rx_i(1'b1),
     .cptra_ss_clk_i(core_clk),
     .cptra_i3c_clk_i(i3c_clk),
     .cptra_ss_rdc_clk_cg_o(), // TODO: Should this be connected?
     .cptra_ss_mcu_clk_cg_o(), // TODO: Should this be connected?
+`ifdef HTG940_FPGA
+    // HTG-940 has no Versal PS to program the wrapper registers before boot.
+    // Power-good follows the board reset and SS reset is released by the local
+    // reset sequencer above.
+    .cptra_ss_pwrgood_i(S_AXI_WRAPPER_ARESETN),
+    .cptra_ss_rst_b_i(axi_reset),
+`else
     .cptra_ss_pwrgood_i(hwif_out.interface_regs.control.cptra_pwrgood.value),
     .cptra_ss_rst_b_i(hwif_out.interface_regs.control.cptra_ss_rst_b.value),
+`endif
     .cptra_ss_mci_cptra_rst_b_i(cptra_rst_b),
     .cptra_ss_mci_cptra_rst_b_o(cptra_rst_b),
     .cptra_ss_rst_b_o(),
@@ -2387,12 +2872,14 @@ caliptra_ss_top #(
     .cptra_ss_i3c_s_axi_if_r_sub(cptra_ss_i3c_s_axi_if.r_sub),
 
     // USB AXI register interfaces
-    .cptra_ss_usb_dev_s_axi_if_w_sub(cptra_ss_usb_dev_s_axi_if.w_sub),
-    .cptra_ss_usb_dev_s_axi_if_r_sub(cptra_ss_usb_dev_s_axi_if.r_sub),
-    .cptra_ss_usb_host_s_axi_if_w_sub(cptra_ss_usb_host_s_axi_if.w_sub),
-    .cptra_ss_usb_host_s_axi_if_r_sub(cptra_ss_usb_host_s_axi_if.r_sub),
-    .cptra_ss_usb_dma_s_axi_if_w_sub(cptra_ss_usb_dma_s_axi_if.w_sub),
-    .cptra_ss_usb_dma_s_axi_if_r_sub(cptra_ss_usb_dma_s_axi_if.r_sub),
+    .cptra_ss_usb_combo_s_axi_if_w_sub(cptra_ss_usb_combo_s_axi_if.w_sub),
+    .cptra_ss_usb_combo_s_axi_if_r_sub(cptra_ss_usb_combo_s_axi_if.r_sub),
+    .cptra_ss_usb_dev0_mem_s_axi_if_w_sub(cptra_ss_usb_dev0_mem_s_axi_if.w_sub),
+    .cptra_ss_usb_dev0_mem_s_axi_if_r_sub(cptra_ss_usb_dev0_mem_s_axi_if.r_sub),
+    .cptra_ss_usb_dev1_csr_s_axi_if_w_sub(cptra_ss_usb_dev1_csr_s_axi_if.w_sub),
+    .cptra_ss_usb_dev1_csr_s_axi_if_r_sub(cptra_ss_usb_dev1_csr_s_axi_if.r_sub),
+    .cptra_ss_usb_dev1_mem_s_axi_if_w_sub(cptra_ss_usb_dev1_mem_s_axi_if.w_sub),
+    .cptra_ss_usb_dev1_mem_s_axi_if_r_sub(cptra_ss_usb_dev1_mem_s_axi_if.r_sub),
 
     // Caliptra SS LC Controller AXI Sub Interface
     .cptra_ss_lc_axi_wr_req_i,
@@ -2451,17 +2938,26 @@ caliptra_ss_top #(
 
 // TRNG Interface
 `ifdef CALIPTRA_INTERNAL_TRNG
-    // External Request
-    .cptra_ss_cptra_core_etrng_req_o(etrng_req),
-    // Physical Source for Internal TRNG
-    .cptra_ss_cptra_core_itrng_data_i(itrng_data),
-    .cptra_ss_cptra_core_itrng_valid_i(itrng_valid),
+    // The FPGA entropy FIFO drives Caliptra's primary iTRNG source. The
+    // secondary source is disabled for this platform.
+    .cptra_ss_cptra_core_etrng0_req_o(etrng_req),
+    .cptra_ss_cptra_core_etrng1_req_o(),
+    .cptra_ss_cptra_core_itrng0_data_i(itrng_data),
+    .cptra_ss_cptra_core_itrng0_valid_i(itrng_valid),
+    .cptra_ss_cptra_core_itrng1_data_i(4'h0),
+    .cptra_ss_cptra_core_itrng1_valid_i(1'b0),
+    .cptra_ss_cptra_core_itrng1_en_i(1'b0),
 `endif
 
     //.cptra_ss_mcu_rom_macro_req_if,
 
     // Caliptra SS MCU
+    `ifdef HTG940_FPGA
+    // HTG940_MCU_LSU_USER_FIX: match FPGA ROM axi_user0 = 1.
+    .cptra_ss_strap_mcu_lsu_axi_user_i(32'h0000_0001),
+    `else
     .cptra_ss_strap_mcu_lsu_axi_user_i(hwif_out.interface_regs.lsu_user.lsu_user.value),
+    `endif
     .cptra_ss_strap_mcu_ifu_axi_user_i(hwif_out.interface_regs.ifu_user.ifu_user.value),
     .cptra_ss_strap_mcu_sram_config_axi_user_i(hwif_out.interface_regs.sram_config_user.sram_config_user.value),
     .cptra_ss_strap_mci_soc_config_axi_user_i(hwif_out.interface_regs.soc_config_user.soc_config_user.value),
@@ -2483,7 +2979,12 @@ caliptra_ss_top #(
     .cptra_ss_mci_generic_input_wires_i({hwif_out.interface_regs.mci_generic_input_wires[1].value.value, hwif_out.interface_regs.mci_generic_input_wires[0].value.value}),
     .cptra_ss_mci_generic_output_wires_o({hwif_in.interface_regs.mci_generic_output_wires[1].value.next, hwif_in.interface_regs.mci_generic_output_wires[0].value.next}),
 
-    .cptra_ss_strap_mcu_reset_vector_i(hwif_out.interface_regs.mcu_reset_vector.mcu_reset_vector.value),
+    `ifdef HTG940_FPGA
+    // Standalone HTG940: start MCU execution from its mapped ROM.
+       .cptra_ss_strap_mcu_reset_vector_i(32'hB004_0000),
+    `else
+       .cptra_ss_strap_mcu_reset_vector_i(hwif_out.interface_regs.mcu_reset_vector.mcu_reset_vector.value),
+    `endif
     .cptra_ss_mcu_no_rom_config_i(hwif_out.interface_regs.mcu_config.mcu_no_rom_config.value),
     .cptra_ss_mci_boot_seq_brkpoint_i(hwif_out.interface_regs.mcu_config.cptra_ss_mci_boot_seq_brkpoint_i.value),
 
@@ -2500,12 +3001,13 @@ caliptra_ss_top #(
     .cptra_ss_mcu_jtag_tdi_i(mcu_jtag_tdi_i),
     .cptra_ss_mcu_jtag_trst_n_i(mcu_jtag_trst_n_i),
     .cptra_ss_mcu_jtag_tdo_o(mcu_jtag_tdo_o),
-    .cptra_ss_mcu_jtag_tdoEn_o(mcu_jtag_tdoEn_o),
+    .cptra_ss_mcu_jtag_tdoEn_o(),
 
     // Address straps
     .cptra_ss_strap_caliptra_base_addr_i     (64'hA4100000),
     .cptra_ss_strap_mci_base_addr_i          (64'hA8000000),
-    .cptra_ss_strap_recovery_ifc_base_addr_i (64'hA4030100), // I3C controller SecFwRecoveryIf
+    .cptra_ss_strap_i3c_recovery_ifc_base_addr_i(64'hA4030100),
+    .cptra_ss_strap_usb_recovery_ifc_base_addr_i(64'hA4200800),
     .cptra_ss_strap_otp_fc_base_addr_i       (64'hA4060000),
     .cptra_ss_strap_uds_seed_base_addr_i     ({32'h00000000, hwif_out.interface_regs.uds_seed_base_addr.uds_seed_base_addr.value}),
     .cptra_ss_strap_key_release_base_addr_i({32'h00000000, hwif_out.interface_regs.ss_key_release_base_addr.ss_key_release_base_addr.value}),
@@ -2565,18 +3067,26 @@ caliptra_ss_top #(
     .cptra_i3c_axi_user_id_filtering_enable_i(hwif_out.interface_regs.control.i3c_axi_user_id_filtering.value),
 
 
-    // USB core SRAM interface: no external USB SRAM model for register-only AXI test
-    .cptra_ss_usb_mem_q_i(usb_mem_q),
-    .cptra_ss_usb_mem_d_o(),
-    .cptra_ss_usb_mem_cs_o(),
-    .cptra_ss_usb_mem_a_o(),
-    .cptra_ss_usb_mem_web_out_o(),
-    .cptra_ss_usb_mem_bsel_o(),
+    // Separate DEV0 and DEV1 SRAM interfaces.
+    .cptra_ss_usb_dev0_mem_q_i(usb_dev0_mem_q),
+    .cptra_ss_usb_dev0_mem_d_o(usb_dev0_mem_d),
+    .cptra_ss_usb_dev0_mem_cs_o(usb_dev0_mem_cs),
+    .cptra_ss_usb_dev0_mem_a_o(usb_dev0_mem_a),
+    .cptra_ss_usb_dev0_mem_web_out_o(usb_dev0_mem_web),
+    .cptra_ss_usb_dev0_mem_bsel_o(usb_dev0_mem_bsel),
+    .cptra_ss_usb_dev1_mem_q_i(usb_dev1_mem_q),
+    .cptra_ss_usb_dev1_mem_d_o(usb_dev1_mem_d),
+    .cptra_ss_usb_dev1_mem_cs_o(usb_dev1_mem_cs),
+    .cptra_ss_usb_dev1_mem_a_o(usb_dev1_mem_a),
+    .cptra_ss_usb_dev1_mem_web_out_o(usb_dev1_mem_web),
+    .cptra_ss_usb_dev1_mem_bsel_o(usb_dev1_mem_bsel),
+    .cptra_ss_usb_dev1_irq_o(),
+    .cptra_ss_usb_dev1_fiq_o(),
 
     // USB UTMI PHY tie-offs for register-only bring-up
     .cptra_ss_usb_utmi_clk_i(core_clk),
-    .cptra_ss_usb_utmi_dev_clk_lock_i(1'b1),
-    .cptra_ss_usb_utmi_hst_clk_lock_i(1'b1),
+    .cptra_ss_usb_utmi_clk_lock_i(1'b1),
+    .cptra_ss_usb_async_disable_i(1'b0),
     .cptra_ss_usb_utmi_rxdata_i(8'h00),
     .cptra_ss_usb_utmi_rxvalid_i(1'b0),
     .cptra_ss_usb_utmi_rxactive_i(1'b0),
@@ -2593,20 +3103,15 @@ caliptra_ss_top #(
     .cptra_ss_usb_utmi_vcontrol_o(),
     .cptra_ss_usb_utmi_vcontrolloadm_o(),
     .cptra_ss_usb_utmi_vstatus_i(8'h00),
-    .cptra_ss_usb_utmi_hostdisconnect_i(1'b0),
-    .cptra_ss_usb_utmi_id_enable_o(),
-    .cptra_ss_usb_utmi_id_value_i(1'b0),
-    .cptra_ss_usb_utmi_dppulldown_o(),
-    .cptra_ss_usb_utmi_dmpulldown_o(),
 
-    // USB ULPI PHY tie-offs
-    .cptra_ss_usb_ulpi_clk_i(core_clk),
-    .cptra_ss_usb_ulpi_rxdata_i(8'h00),
-    .cptra_ss_usb_ulpi_txdata_o(),
-    .cptra_ss_usb_ulpi_txenable_o(),
-    .cptra_ss_usb_ulpi_dir_i(1'b0),
-    .cptra_ss_usb_ulpi_stp_o(),
-    .cptra_ss_usb_ulpi_nxt_i(1'b0),
+    // USB ULPI PHY external interface
+    .cptra_ss_usb_ulpi_clk_i(USB_ULPI_CLK),
+    .cptra_ss_usb_ulpi_rxdata_i(usb_ulpi_rxdata),
+    .cptra_ss_usb_ulpi_txdata_o(usb_ulpi_txdata),
+    .cptra_ss_usb_ulpi_txenable_o(usb_ulpi_txenable),
+    .cptra_ss_usb_ulpi_dir_i(USB_ULPI_DIR),
+    .cptra_ss_usb_ulpi_stp_o(USB_ULPI_STP),
+    .cptra_ss_usb_ulpi_nxt_i(USB_ULPI_NXT),
     .cptra_ss_usb_ulpi_ddr_sel_i(1'b0),
 
     // USB VBus/recovery tie-offs
@@ -2641,3 +3146,6 @@ caliptra_ss_top #(
     assign dbg_log            = hwif_out.fifo_regs.dbg_fifo_push.in_data.value[7:0];
 
 endmodule
+
+
+// HTG940_UART_LOGS_V1

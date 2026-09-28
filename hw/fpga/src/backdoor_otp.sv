@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // This has ECC disabled but the logic is left in for now.
-
+`include "caliptra_prim_assert.sv"
 module backdoor_otp
   import prim_generic_otp_pkg::*;
 #(
@@ -457,5 +457,27 @@ module backdoor_otp
   `CALIPTRA_ASSERT(CheckCommands1_A, state_q != ResetSt && valid_i && ready_o
       |-> cmd_i inside {Read, ReadRaw, Write, WriteRaw, Zeroize})
 
+
+  // Check that register write-enable errors reach the fatal output.
+  `CALIPTRA_ASSERT_ERROR_TRIGGER_ERR(
+      OtpRegWeFatal,
+      u_reg_top.u_caliptra_prim_reg_we_check.u_caliptra_prim_onehot_check,
+      fatal_alert_o,
+      1'b0,
+      2,
+      err_o,
+      clk_i,
+      !rst_ni)
+
+  // Check that invalid FSM states reach the fatal output.
+  `CALIPTRA_ASSERT_ERROR_TRIGGER_ERR(
+      OtpFsmFatal,
+      u_state_regs,
+      fatal_alert_o,
+      1'b0,
+      2,
+      unused_err_o,
+      clk_i,
+      !rst_ni)
 
 endmodule : backdoor_otp

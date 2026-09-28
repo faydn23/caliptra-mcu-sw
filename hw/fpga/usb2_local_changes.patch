@@ -1,0 +1,42 @@
+diff --git a/src/integration/rtl/ip_xxx_3511_hs_mem_compound_wrapper.sv b/src/integration/rtl/ip_xxx_3511_hs_mem_compound_wrapper.sv
+index 86cb6a3..da7e44c 100755
+--- a/src/integration/rtl/ip_xxx_3511_hs_mem_compound_wrapper.sv
++++ b/src/integration/rtl/ip_xxx_3511_hs_mem_compound_wrapper.sv
+@@ -587,7 +587,7 @@ module ip_xxx_3511_hs_mem_compound_wrapper
+     .C_PLL_ENABLE(0),      // FALSE: no on-chip PLL
+     // C_PLL_DIVIDER left at the IP default: C_PLL_ENABLE is FALSE
+     .C_ULPI_SUPPORT(1),    // TRUE
+-    .C_UTMI_SUPPORT(1),    // TRUE
++    .C_UTMI_SUPPORT(0),    // TRUE
+     .C_EXTEND_TX_DELAY(1), // TRUE
+     .G_SIM_CHIRP_TIMERS(G_SIM_CHIRP_TIMERS)
+   ) u_hub_compound (
+diff --git a/src/integration/rtl/usb_ocp_recovery_top.sv b/src/integration/rtl/usb_ocp_recovery_top.sv
+index ffd1356..d382a05 100644
+--- a/src/integration/rtl/usb_ocp_recovery_top.sv
++++ b/src/integration/rtl/usb_ocp_recovery_top.sv
+@@ -699,11 +699,19 @@ module usb_ocp_recovery_top
+   // OCP command aperture). Same-domain (dev_axi_aclk) registered field value; no
+   // synchronizer needed.
+   assign rec_ocp_path_disable = rb_hwif_out.CALIPTRA_CTRL.OCP_PATH_DISABLE.value;
+-  assign rec_ocp_claim_abort = rb_hwif_out.CALIPTRA_CTRL.OCP_CLAIM_ABORT.swmod
+-                             && rb_is_ext
+-                             && cpuif_req_is_wr
+-                             && cpuif_wr_biten[1]
+-                             && cpuif_wr_data[1];
++  // Register the firmware abort request to break the combinational
++  // feedback through USB request suppression and EXT arbitration.
++  always_ff @(posedge clk or negedge rst_ni) begin
++    if (!rst_ni)
++      rec_ocp_claim_abort <= 1'b0;
++    else
++      rec_ocp_claim_abort <=
++          rb_hwif_out.CALIPTRA_CTRL.OCP_CLAIM_ABORT.swmod
++          && rb_is_ext
++          && cpuif_req_is_wr
++          && cpuif_wr_biten[1]
++          && cpuif_wr_data[1];
++  end
+   assign ocp_claim_abort_clear =
+       rb_hwif_out.CALIPTRA_CTRL.OCP_CLAIM_ABORT.value;
+   assign fw_protocol_error_req =
