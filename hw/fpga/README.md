@@ -17,6 +17,17 @@ limitations under the License.*_<BR>
 FPGA provides a fast environment for software development and testing that is built on Caliptra Core and Subsystem RTL.
 The ARM CPU takes the place of an SOC manager and can drive stimulus to Caliptra SS over an AXI bus. In addition the Caliptra Core, MCU, and LCC JTAGs are connected to GPIO pins for debug and testing from the ARM CPU.
 
+## HTG940 full-system build
+
+The prepared HTG940 flow preserves the full Caliptra core/crypto, MCU, USB, and
+dual-ILA configuration at a 40 MHz core clock. See
+[the build instructions](htg940/README.txt) for pinned submodule preparation,
+firmware inputs, and the Vivado command. The entry point is
+`htg940/run_full.tcl`; previous build/test output directories are not required.
+The previous full build generated a bitstream but did not close timing.
+Firmware binaries and generated build outputs are not distributed in this branch.
+See the HTG940 instructions for the required external firmware inputs.
+
 ### FPGA Block Diagram Components ###
 - Wrapper Registers
   - Controls resets, straps, and FPGA wrapper utilities such as the log and debug FIFOs.

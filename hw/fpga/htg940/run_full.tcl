@@ -1,0 +1,7 @@
+set VERSION 52a124ef
+set htgReleaseDir [file dirname [file normalize [info script]]]
+puts [exec python3 [file join $htgReleaseDir prepare_sources.py] --check]
+if {[llength [lsearch -all -inline -glob $argv FW_IMAGE_DIR=*]] == 0} {
+    lappend argv "FW_IMAGE_DIR=[file join $htgReleaseDir firmware]"
+}
+source [file join $htgReleaseDir .. htg940_usb_min_ila run_dual_ila.tcl]

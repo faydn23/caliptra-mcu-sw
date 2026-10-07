@@ -31,6 +31,7 @@ set I3C_SCL_RATE_KHZ    1000
 set I3C_OUTSIDE         FALSE
 set STUB_ADAMS_BRIDGE FALSE
 set STUB_ECC FALSE
+set MCU_USB_ONLY FALSE
 set FW_IMAGE_DIR        ""
 
 foreach arg $argv {
@@ -627,4 +628,3 @@ if {$BUILD} {
   puts "HTG-940 XSA:       $xsaFile"
   puts "Build time:        $elapsedMinutes minutes"
 }
-

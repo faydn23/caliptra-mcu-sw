@@ -228,6 +228,14 @@ remove_files $wrapperFiles
 add_files -norecurse $wrapperGenerated
 set_property file_type SystemVerilog [get_files $wrapperGenerated]
 
+if {[info exists MCU_USB_ONLY] && $MCU_USB_ONLY} {
+  source [file join $fpgaDir htg940_usb_min_ila prepare_mcu_usb_only.tcl]
+}
+
+if {[info exists HTG_ULPI_DIAGNOSTICS] && $HTG_ULPI_DIAGNOSTICS} {
+  source [file join $fpgaDir htg940_usb_min_ila prepare_debug_sources.tcl]
+}
+
 # HTG940_PACKAGING_FIX_V1
 # Bake only the hardware interface conditional into generated copies, so IP
 # port discovery and OOC compilation cannot disagree about its existence.
@@ -500,4 +508,3 @@ ipx::save_core [ipx::current_core]
 
 # Close caliptra_package_project
 close_project
-

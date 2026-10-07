@@ -2697,19 +2697,25 @@ end
 assign hwif_in.interface_regs.ocp_lock_control_reg.rdy.next = ocp_lock_rdy;
 
 
+//logic usb_vbuscomp_on;
+//logic usb_chrgvbus;
+//logic usb_dischrgvbus;
+
+
 // USB ULPI signals
 logic [7:0] usb_ulpi_rxdata;
 logic [7:0] usb_ulpi_txdata;
 logic       usb_ulpi_txenable;
 
-//logic usb_vbuscomp_on;
-//logic usb_chrgvbus;
-//logic usb_dischrgvbus;
-
-assign USB_ULPI_DATA =
-    usb_ulpi_txenable ? usb_ulpi_txdata : 8'bz;
-
-assign usb_ulpi_rxdata = USB_ULPI_DATA;
+// Explicit pad primitives preserve tristate across out-of-context IP synthesis.
+for (genvar ulpi_bit = 0; ulpi_bit < 8; ulpi_bit++) begin : g_usb_ulpi_iobuf
+    IOBUF u_data (
+        .IO(USB_ULPI_DATA[ulpi_bit]),
+        .I(usb_ulpi_txdata[ulpi_bit]),
+        .O(usb_ulpi_rxdata[ulpi_bit]),
+        .T(~usb_ulpi_txenable)
+    );
+end
 
 // TODO: Unconnected signals issue: https://github.com/chipsalliance/caliptra-mcu-sw/issues/370
 // HTG940_UNUSED_SPI_UART_AXI

@@ -1,0 +1,6 @@
+!submodule_pins.json
+!snapshot_manifest.json
+/snapshot_manifest.json
+/firmware/*.bin
+/firmware/*.mem
+/firmware/*.coe
