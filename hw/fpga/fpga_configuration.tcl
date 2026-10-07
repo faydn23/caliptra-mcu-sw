@@ -10,6 +10,7 @@ set RTL_VERSION latest
 set BOARD VCK190
 set ITRNG TRUE
 set DEBUG FALSE
+set USB_ENABLE FALSE
 set FAST_I3C TRUE
 set CORE_CLK_MHZ 18
 # Xilinx core requires 100 - 300MHz. Actual clock usually rounds down
@@ -24,6 +25,15 @@ set SEGMENTED_WRITE_NCR FALSE
 foreach arg $argv {
   regexp {(.*)=(.*)} $arg fullmatch option value
   set $option "$value"
+}
+if {![info exists USB_EXPORT_PORTS]} {
+  set USB_EXPORT_PORTS [expr {$BOARD eq "VCK190"}]
+}
+if {$USB_ENABLE && !$USB_EXPORT_PORTS} {
+  error "USB_ENABLE requires USB_EXPORT_PORTS for the physical ULPI interface"
+}
+if {$USB_EXPORT_PORTS && $BOARD ne "VCK190"} {
+  error "USB FMC constraints are verified only for VCK190"
 }
 # If VERSION was not set by tclargs, set it from the commit ID.
 # This assumes it is run from within caliptra-sw. If building from outside caliptra-sw call with "VERSION=[hex number]"
@@ -109,6 +119,7 @@ create_bd_design "caliptra_fpga_project_bd"
 
 # Add Caliptra package
 create_bd_cell -type ip -vlnv design:user:caliptra_package_top:1.0 caliptra_package_top_0
+set_property CONFIG.USB_ENABLE [expr {$USB_ENABLE ? 1 : 0}] [get_bd_cells caliptra_package_top_0]
 
 #### Add Versal PS ####
 source create_versal_cips.tcl
@@ -132,10 +143,16 @@ close $xdc_fd
 #### Add AXI Infrastructure
 create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_interconnect_0
 set_property -dict [list \
-  CONFIG.NUM_MI {14} \
+  CONFIG.NUM_MI {15} \
   CONFIG.NUM_SI {6} \
   CONFIG.NUM_CLKS {2} \
   ] [get_bd_cells axi_interconnect_0]
+
+create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 usb_interconnect_0
+set_property -dict [list CONFIG.NUM_MI {4} CONFIG.NUM_SI {1} CONFIG.NUM_CLKS {1}] \
+  [get_bd_cells usb_interconnect_0]
+connect_bd_intf_net [get_bd_intf_pins axi_interconnect_0/M14_AXI] \
+  [get_bd_intf_pins usb_interconnect_0/S00_AXI]
 
 proc register_axi_subordinate {src_block src_port address size dst addrseg name debug clock} {
   global axi_subordinates
@@ -171,6 +188,11 @@ register_axi_subordinate axi_interconnect_0 M09_AXI  0xA4080000 0x00001000 xilin
 register_axi_subordinate axi_interconnect_0 M10_AXI  0xA4081000 0x00001000 axi_cdma_0/S_AXI_LITE                  Reg     S_AXI_XILINX_DMA   FALSE  "/ps_0/pl0_ref_clk"
 register_axi_subordinate axi_interconnect_0 M11_AXI  0xB0000000 0x00018000 cptra_rom_backdoor_bram_0/S_AXI        Mem0    S_AXI_CALIPTRA_ROM FALSE  "/ps_0/pl0_ref_clk"
 register_axi_subordinate axi_interconnect_0 M12_AXI  0xB0020000 0x00020000 mcu_rom_backdoor_bram_0/S_AXI          Mem0    S_AXI_SS_ROM       FALSE  "/ps_0/pl0_ref_clk"
+
+register_axi_subordinate usb_interconnect_0 M00_AXI 0xA4200000 0x00100000 caliptra_package_top_0/S_AXI_USB_COMBO    reg0 S_AXI_USB_COMBO    TRUE "/ps_0/pl0_ref_clk"
+register_axi_subordinate usb_interconnect_0 M01_AXI 0xA4300000 0x00100000 caliptra_package_top_0/S_AXI_USB_DEV0_MEM reg0 S_AXI_USB_DEV0_MEM TRUE "/ps_0/pl0_ref_clk"
+register_axi_subordinate usb_interconnect_0 M02_AXI 0xA4400000 0x00100000 caliptra_package_top_0/S_AXI_USB_DEV1_CSR reg0 S_AXI_USB_DEV1_CSR TRUE "/ps_0/pl0_ref_clk"
+register_axi_subordinate usb_interconnect_0 M03_AXI 0xA4500000 0x00100000 caliptra_package_top_0/S_AXI_USB_DEV1_MEM reg0 S_AXI_USB_DEV1_MEM TRUE "/ps_0/pl0_ref_clk"
 
 # Create reset block
 create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_0
@@ -251,6 +273,7 @@ connect_bd_net -net proc_sys_reset_0_peripheral_aresetn \
   [get_bd_pins proc_sys_reset_0/peripheral_aresetn] \
   [get_bd_pins axi_apb_bridge_0/s_axi_aresetn] \
   [get_bd_pins axi_interconnect_0/aresetn] \
+  [get_bd_pins usb_interconnect_0/aresetn] \
   [get_bd_pins caliptra_package_top_0/S_AXI_WRAPPER_ARESETN] \
   [get_bd_pins cptra_rom_backdoor_bram_0/s_axi_aresetn] \
   [get_bd_pins mcu_rom_backdoor_bram_0/s_axi_aresetn] \
@@ -266,6 +289,7 @@ connect_bd_net \
   [get_bd_pins $ps_axi_aclk] \
   [get_bd_pins proc_sys_reset_0/slowest_sync_clk] \
   [get_bd_pins axi_interconnect_0/aclk] \
+  [get_bd_pins usb_interconnect_0/aclk] \
   [get_bd_pins caliptra_package_top_0/core_clk] \
   [get_bd_pins cptra_rom_backdoor_bram_0/s_axi_aclk] \
   [get_bd_pins mcu_rom_backdoor_bram_0/s_axi_aclk] \
@@ -338,12 +362,37 @@ connect_bd_net [get_bd_pins caliptra_package_top_0/ARM_USER] [get_bd_pins axi_in
 
 #### Assign address segments for all AXI managers ####
 set managers {ps_0/M_AXI_FPD caliptra_package_top_0/M_AXI_MCU_IFU caliptra_package_top_0/M_AXI_MCU_LSU caliptra_package_top_0/M_AXI_MCU_SB caliptra_package_top_0/M_AXI_CALIPTRA axi_cdma_0/Data}
-set base_offsets {0 0 0 0 0}
+set base_offsets {0 0 0 0 0 0}
 
 foreach manager $managers base_offset $base_offsets {
   for {set i 1} {$i <= $axi_subordinates(ID)} {incr i} {
     puts "Assigning address for $axi_subordinates($i,dst)"
     assign_bd_address -offset [expr $base_offset + $axi_subordinates($i,address)] -range $axi_subordinates($i,size) -target_address_space [get_bd_addr_spaces $manager] [get_bd_addr_segs $axi_subordinates($i,dst)/$axi_subordinates($i,addrseg)] -force
+  }
+
+}
+
+if {$USB_EXPORT_PORTS} {
+create_bd_port -dir I -type clk USB_ULPI_CLK
+set_property CONFIG.FREQ_HZ 60000000 [get_bd_ports USB_ULPI_CLK]
+create_bd_port -dir IO -from 7 -to 0 USB_ULPI_DATA
+foreach port {USB_ULPI_DIR USB_ULPI_NXT USB_VBUS_VALID} {
+  create_bd_port -dir I $port
+}
+foreach port {USB_ULPI_STP USB_DEV1_IRQ USB_DEV1_FIQ} {
+  create_bd_port -dir O $port
+}
+foreach port {USB_ULPI_CLK USB_ULPI_DATA USB_ULPI_DIR USB_ULPI_NXT USB_ULPI_STP USB_VBUS_VALID USB_DEV1_IRQ USB_DEV1_FIQ} {
+  connect_bd_net [get_bd_ports $port] [get_bd_pins caliptra_package_top_0/$port]
+}
+add_files -fileset constrs_1 [file join $fpgaDir constraints vck190_usb_fmc.xdc]
+} else {
+  create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 usb_disabled_constant
+  set_property -dict [list CONFIG.CONST_WIDTH {1} CONFIG.CONST_VAL {0}] \
+    [get_bd_cells usb_disabled_constant]
+  foreach port {USB_ULPI_CLK USB_ULPI_DIR USB_ULPI_NXT USB_VBUS_VALID} {
+    connect_bd_net [get_bd_pins usb_disabled_constant/dout] \
+      [get_bd_pins caliptra_package_top_0/$port]
   }
 }
 

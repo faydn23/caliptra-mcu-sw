@@ -1,5 +1,7 @@
 # Licensed under the Apache-2.0 license
 
+exec python3 [file join $fpgaDir prepare_usb_sources.py] --check
+
 # Create a project to package Caliptra.
 # Packaging Caliptra allows Vivado to recognize the APB bus as an endpoint for the memory map.
 create_project caliptra_package_project $outputDir -part $PART
@@ -51,7 +53,7 @@ add_files [ glob $caliptrartlDir/src/*/rtl/*.v ]
 
 # Add ss RTL
 # Add MCU VEER Headers
-add_files $ssrtlDir/src/riscv_core/veer_el2/rtl/defines/pic_map_auto.h
+add_files $ssrtlDir/src/riscv_core/veer_el2/rtl/defines/css_mcu0_pic_map_auto.h
 add_files $ssrtlDir/src/riscv_core/veer_el2/rtl/defines/css_mcu0_el2_pdef.vh
 add_files $ssrtlDir/src/riscv_core/veer_el2/rtl/defines/css_mcu0_el2_param.vh
 add_files $ssrtlDir/src/riscv_core/veer_el2/rtl/defines/css_mcu0_common_defines.vh
@@ -73,6 +75,8 @@ add_files $ssrtlDir/src/integration/testbench/prim_generic_otp.sv
 add_files [ glob $ssrtlDir/src/*/rtl/*.svh ]
 add_files [ glob $ssrtlDir/src/*/rtl/*.sv ]
 
+source [file join $fpgaDir usb_compound_sources.tcl]
+
 # I3C
 set i3cDir $ssrtlDir/third_party/i3c-core
 # Include headers and packages first
@@ -87,7 +91,10 @@ add_files [ lsearch -inline -all -not [ glob $i3cDir/src/*/*.sv ] *_pkg.sv ]
 add_files [ lsearch -inline -all -not [ glob $i3cDir/src/*.sv ] *_pkg.sv ]
 
 # Remove unused spi_host files.
-remove_files [ glob $caliptrartlDir/src/spi_host/rtl/*.sv ]
+set obsolete_spi_sources [glob -nocomplain $caliptrartlDir/src/spi_host/rtl/*.sv]
+if {[llength $obsolete_spi_sources]} {
+  remove_files $obsolete_spi_sources
+}
 
 # Add FPGA specific sources
 add_files [ glob $fpgaDir/src/*.sv]
@@ -98,7 +105,7 @@ remove_files [ glob $caliptrartlDir/src/ecc/rtl/ecc_ram_tdp_file.sv ]
 
 # Replace caliptra_ss_top with version modified with faster I3C clocks
 file copy [ glob $ssrtlDir/src/integration/rtl/caliptra_ss_top.sv ] $outputDir/caliptra_ss_top.sv
-exec patch $outputDir/caliptra_ss_top.sv $fpgaDir/src/caliptra_ss_top.patch
+exec patch --batch --forward --fuzz=0 $outputDir/caliptra_ss_top.sv $fpgaDir/src/caliptra_ss_top.patch
 remove_files [ glob $ssrtlDir/src/integration/rtl/caliptra_ss_top.sv ]
 add_files $outputDir/caliptra_ss_top.sv
 
@@ -120,6 +127,7 @@ set_property top caliptra_package_axi_top [current_fileset]
 # Create block diagram that includes an instance of caliptra_package_top
 create_bd_design "caliptra_package_bd"
 create_bd_cell -type module -reference caliptra_package_axi_top caliptra_package_top_0
+set_property CONFIG.USB_ENABLE [expr {$USB_ENABLE ? 1 : 0}] [get_bd_cells caliptra_package_top_0]
 
 save_bd_design
 close_bd_design [get_bd_designs caliptra_package_bd]
@@ -151,6 +159,9 @@ ipx::associate_bus_interfaces -busif S_AXI_LCC -clock core_clk [ipx::current_cor
 # Different clock used for I3C
 ipx::associate_bus_interfaces -busif S_AXI_I3C -clock i3c_clk [ipx::current_core]
 ipx::associate_bus_interfaces -busif S_AXI_I3C_SPARE -clock i3c_clk [ipx::current_core]
+foreach bus {S_AXI_USB_COMBO S_AXI_USB_DEV0_MEM S_AXI_USB_DEV1_CSR S_AXI_USB_DEV1_MEM} {
+  ipx::associate_bus_interfaces -busif $bus -clock core_clk [ipx::current_core]
+}
 
 # Other packager settings
 set_property name caliptra_package_top [ipx::current_core]

@@ -6,7 +6,7 @@
 // This has ECC disabled but the logic is left in for now.
 
 module backdoor_otp
-  import caliptra_prim_otp_pkg::*;
+  import prim_generic_otp_pkg::*;
 #(
   // Native OTP word size. This determines the size_i granule.
   parameter  int Width         = 16,
