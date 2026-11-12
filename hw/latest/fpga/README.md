@@ -101,12 +101,13 @@ Vivado exposes the `STEPS.PLACE_DESIGN.ARGS.SUBDIRECTIVE` run property. Otherwis
 it prints a warning and uses the `Explore` directive alone. Check placement and
 timing results before using the generated image.
 
-This checkout uses Caliptra SS at `cadc77b6` and its pinned submodules.
+This FPGA configuration targets Caliptra SS at `69a8afa1` and its pinned submodules.
 The FPGA wrapper preserves the existing I3C and backdoor ROM/OTP interfaces,
 provides the new 4 KiB MCU ROM-patch SRAM, and uses TRNG source 0 with source 1
 disabled. The USB PHY and USB memory interfaces are inactive: no ULPI daughter
 card is required or supported by this configuration, and USB recovery is not
-available. The subsystem SPI host and UART are disabled; the existing external
+available. The subsystem SPI host and UART ports have been removed from SS and
+are not connected by the wrapper; the existing external
 flash controllers and Versal console are unchanged. USB RTL is included to
 resolve the subsystem's instances, but its AXI ports accept no requests and its
 PHY is held disabled. ROM/firmware compatibility with this SS revision still

@@ -2242,11 +2242,11 @@ end
 assign hwif_in.interface_regs.ocp_lock_control_reg.rdy.next = ocp_lock_rdy;
 
 // TODO: Unconnected signals issue: https://github.com/chipsalliance/caliptra-mcu-sw/issues/370
-// USB has no PHY on this design; SPI and UART are disabled below.
-axi_if #(.AW(32), .DW(32), .IW(8), .UW(32)) unused_peripheral_axi[6] (
+// USB has no PHY on this design.
+axi_if #(.AW(32), .DW(32), .IW(8), .UW(32)) unused_peripheral_axi[4] (
     .clk(core_clk), .rst_n(axi_reset)
 );
-for (genvar i = 0; i < 6; i++) begin : unused_peripherals
+for (genvar i = 0; i < 4; i++) begin : unused_peripherals
     assign unused_peripheral_axi[i].awaddr = '0;
     assign unused_peripheral_axi[i].awburst = '0;
     assign unused_peripheral_axi[i].awsize = '0;
@@ -2283,9 +2283,7 @@ end
 caliptra_ss_top #(
     .CPTRA_SS_ROM_SIZE_KB(128),
     .MCU_MBOX0_SIZE_KB(16),
-    .MCU_MBOX1_SIZE_KB(16),
-    .SPI_HOST_ENA(0),
-    .UART_ENA(0)
+    .MCU_MBOX1_SIZE_KB(16)
 ) caliptra_ss_top_0 (
 
     .cptra_ss_clk_i(core_clk),
@@ -2345,10 +2343,6 @@ caliptra_ss_top #(
     .cptra_ss_usb_dev1_csr_s_axi_if_r_sub(unused_peripheral_axi[2].r_sub),
     .cptra_ss_usb_dev1_mem_s_axi_if_w_sub(unused_peripheral_axi[3].w_sub),
     .cptra_ss_usb_dev1_mem_s_axi_if_r_sub(unused_peripheral_axi[3].r_sub),
-    .cptra_ss_spi_host_s_axi_if_w_sub(unused_peripheral_axi[4].w_sub),
-    .cptra_ss_spi_host_s_axi_if_r_sub(unused_peripheral_axi[4].r_sub),
-    .cptra_ss_uart_s_axi_if_w_sub(unused_peripheral_axi[5].w_sub),
-    .cptra_ss_uart_s_axi_if_r_sub(unused_peripheral_axi[5].r_sub),
 
     // Caliptra SS LC Controller AXI Sub Interface
     .cptra_ss_lc_axi_wr_req_i,
@@ -2571,16 +2565,6 @@ caliptra_ss_top #(
     .cptra_ss_usb_combo_priv_axi_users_i('{default:32'hFFFF_FFFF}),
     .cptra_ss_usb_dev1_enable_axi_user_filtering_i(1'b1),
     .cptra_ss_usb_dev1_priv_axi_users_i('{default:32'hFFFF_FFFF}),
-    .cptra_ss_sck_o(),
-    .cptra_ss_sck_en_o(),
-    .cptra_ss_csb_o(),
-    .cptra_ss_csb_en_o(),
-    .cptra_ss_sd_o(),
-    .cptra_ss_sd_en_o(),
-    .cptra_ss_sd_i('0),
-    .cptra_ss_uart_rx_i(1'b1),
-    .cptra_ss_uart_tx_o(),
-    .cptra_ss_uart_tx_en_o(),
     .caliptra_ss_life_cycle_steady_state_o(),
     .caliptra_ss_otp_state_valid_o(),
     .caliptra_ss_volatile_raw_unlock_success_o(),
