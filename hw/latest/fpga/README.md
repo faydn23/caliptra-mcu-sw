@@ -104,7 +104,9 @@ timing results before using the generated image.
 This FPGA configuration targets Caliptra SS at `69a8afa1` and its pinned submodules.
 The FPGA wrapper preserves the existing I3C and backdoor ROM/OTP interfaces,
 provides the new 4 KiB MCU ROM-patch SRAM, and uses TRNG source 0 with source 1
-disabled. The USB PHY and USB memory interfaces are inactive: no ULPI daughter
+disabled. The Adams Bridge memory instance enables masking to match `abr_top`,
+including all masked-share RAMs.
+The USB PHY and USB memory interfaces are inactive: no ULPI daughter
 card is required or supported by this configuration, and USB recovery is not
 available. The subsystem SPI host and UART ports have been removed from SS and
 are not connected by the wrapper; the existing external
