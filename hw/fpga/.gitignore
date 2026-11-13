@@ -9,3 +9,20 @@
 /htg940_usb_min_ila/build*/
 /htg940_40mhz_20260928/build*/
 /htg940_usb_min_ila/__pycache__/
+
+# Generated projects, implementation archives, firmware inputs and probes.
+/caliptra_build_segmented/
+/htg940_usb_min_ila/impl_archive*/
+/htg940_usb_min_ila/synth_archive*/
+/htg940/firmware*/
+/bitstream_manifests/
+__pycache__/
+*.pyc
+*.mmi
+*.ltx
+*.pb
+*.wdb
+*.ncr
+*.bin
+*.coe
+*.mem

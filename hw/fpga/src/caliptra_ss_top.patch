@@ -1,6 +1,6 @@
 --- a/caliptra_ss_top.sv
 +++ b/caliptra_ss_top.sv
-@@ -16,12 +16,20 @@
+@@ -16,15 +16,22 @@
  `define MCU_RV_LSU_BUS_TAG_local 1
  `define INCLUDE_FUSE_CTRL = 1
  
@@ -16,12 +16,14 @@
  `include "caliptra_sva.svh"
 +`include "css_mcu0_common_defines.vh"
 +
-+// Avoid a compile error in css_mcu0_el2_param.vh.
-+`include "css_mcu0_el2_pdef.vh"
- `include "i3c_defines.svh"
  `include "caliptra_ss_includes.svh"
  
-@@ -59,6 +67,8 @@
+ module caliptra_ss_top
++    import css_mcu0_el2_pkg::*;
+     import axi_pkg::*;
+     import soc_ifc_pkg::*;
+     import mci_reg_pkg::*;
+@@ -62,6 +69,8 @@
      ,parameter logic [31:0] LCC_JTAG_IDCODE        = 32'h0000_0001
  ) (
      input logic cptra_ss_clk_i,
@@ -30,14 +32,13 @@
      output logic cptra_ss_rdc_clk_cg_o,
      output logic cptra_ss_mcu_clk_cg_o,
      input logic cptra_ss_pwrgood_i,
-@@ -1203,13 +1213,70 @@
+@@ -1240,14 +1249,71 @@
      //=========================================================================-
      // i3c_core Instance
      //=========================================================================-
 -    
--
+
 -    
-+
 +    logic i3c_rst_sync;
 +    xpm_cdc_async_rst #(
 +        .DEST_SYNC_FF(4),
@@ -97,27 +98,30 @@
 +                   disable_id_filtering_i_synch})
 +    );
 +
-     assign priv_ids[0] = 32'd0;
-     assign priv_ids[1] = 32'd0;
+     // Spare slots repeat authorized users; a zero entry would authorize AXI USER 0
+-    assign priv_ids[0] = cptra_ss_strap_caliptra_dma_axi_user_i;
+-    assign priv_ids[1] = cptra_ss_strap_mcu_lsu_axi_user_i;
 -    assign priv_ids[2] = cptra_ss_strap_caliptra_dma_axi_user_i;
 -    assign priv_ids[3] = cptra_ss_strap_mcu_lsu_axi_user_i;
++    assign priv_ids[0] = cptra_ss_strap_caliptra_dma_axi_user_i_synch;
++    assign priv_ids[1] = cptra_ss_strap_mcu_lsu_axi_user_i_synch;
 +    assign priv_ids[2] = cptra_ss_strap_caliptra_dma_axi_user_i_synch;
 +    assign priv_ids[3] = cptra_ss_strap_mcu_lsu_axi_user_i_synch;
  
      assign disable_id_filtering_i = ~cptra_i3c_axi_user_id_filtering_enable_i;
  
-@@ -1219,8 +1286,8 @@
-         .AxiUserWidth(`AXI_USER_WIDTH),
-         .AxiIdWidth  (`AXI_ID_WIDTH)
+@@ -1275,8 +1341,8 @@
+         .CsrAddrWidth     (12),
+         .CsrDataWidth     (32)
      ) i3c (
 -        .clk_i                          (cptra_ss_clk_i),
 -        .rst_ni                         (cptra_ss_rst_b_o),
 +        .clk_i                          (cptra_i3c_clk_i),
 +        .rst_ni                         (i3c_rst_sync),
-         .s_axi_w_if                     (cptra_ss_i3c_s_axi_if_w_sub),
-         .s_axi_r_if                     (cptra_ss_i3c_s_axi_if_r_sub),
-     
-@@ -1235,17 +1302,17 @@
+
+         // AHB is unused; the subsystem always selects the AXI frontend.
+         .haddr_i                        ('0),
+@@ -1307,17 +1373,17 @@
          // Additional signals
          .sel_od_pp_o                    (cptra_ss_sel_od_pp_o),
  

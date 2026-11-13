@@ -195,6 +195,36 @@ connect_bd_net [get_bd_ports ref_clock_156p25mhz_clk_p] [get_bd_pins htg940_cloc
 connect_bd_net [get_bd_ports ref_clock_156p25mhz_clk_n] [get_bd_pins htg940_clocks/clk_in1_n]
 connect_bd_net [get_bd_ports reset_n] [get_bd_pins htg940_clocks/resetn]
 
+set htgI3cClockPin htg940_clocks/clk_out2
+set htgClockLockedPin htg940_clocks/locked
+if {$CORE_CLK_MHZ == 60} {
+  # A shared MMCM rounds the 60/120 MHz pair below 60 MHz.
+  # Generate exact 60 MHz first, then derive the dedicated I3C clock.
+  set_property -dict [list CONFIG.CLKOUT2_USED false CONFIG.NUM_OUT_CLKS 1] \
+    [get_bd_cells htg940_clocks]
+  create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 htg940_i3c_clocks
+  set_property -dict [list \
+    CONFIG.PRIM_SOURCE No_buffer \
+    CONFIG.PRIM_IN_FREQ $CORE_CLK_MHZ \
+    CONFIG.CLKOUT1_REQUESTED_OUT_FREQ $I3C_CLK_MHZ \
+    CONFIG.USE_LOCKED true \
+    CONFIG.USE_RESET true \
+    CONFIG.RESET_TYPE ACTIVE_LOW \
+  ] [get_bd_cells htg940_i3c_clocks]
+  connect_bd_net [get_bd_pins htg940_clocks/clk_out1] \
+    [get_bd_pins htg940_i3c_clocks/clk_in1]
+  connect_bd_net [get_bd_ports reset_n] [get_bd_pins htg940_i3c_clocks/resetn]
+  create_bd_cell -type ip -vlnv xilinx.com:ip:util_vector_logic:2.0 htg940_clocks_locked
+  set_property -dict [list CONFIG.C_SIZE 1 CONFIG.C_OPERATION and] \
+    [get_bd_cells htg940_clocks_locked]
+  connect_bd_net [get_bd_pins htg940_clocks/locked] \
+    [get_bd_pins htg940_clocks_locked/Op1]
+  connect_bd_net [get_bd_pins htg940_i3c_clocks/locked] \
+    [get_bd_pins htg940_clocks_locked/Op2]
+  set htgI3cClockPin htg940_i3c_clocks/clk_out1
+  set htgClockLockedPin htg940_clocks_locked/Res
+}
+
 # -----------------------------------------------------------------------------
 # AXI fabric
 # -----------------------------------------------------------------------------
@@ -238,8 +268,8 @@ global axi_subordinates
 set axi_subordinates(ID) 0
 
 register_axi_subordinate axi_interconnect_0 M00_AXI 0xA4100000 0x00100000 caliptra_package_top_0/S_AXI_CALIPTRA  reg0 S_AXI_CALIPTRA     TRUE  /htg940_clocks/clk_out1
-register_axi_subordinate axi_interconnect_0 M01_AXI 0xA4030000 0x00002000 caliptra_package_top_0/S_AXI_I3C       reg0 S_AXI_I3C         TRUE  /htg940_clocks/clk_out2
-register_axi_subordinate axi_interconnect_0 M13_AXI 0xA4032000 0x00002000 caliptra_package_top_0/S_AXI_I3C_SPARE reg0 S_AXI_I3C_SPARE   TRUE  /htg940_clocks/clk_out2
+register_axi_subordinate axi_interconnect_0 M01_AXI 0xA4030000 0x00002000 caliptra_package_top_0/S_AXI_I3C       reg0 S_AXI_I3C         TRUE  /$htgI3cClockPin
+register_axi_subordinate axi_interconnect_0 M13_AXI 0xA4032000 0x00002000 caliptra_package_top_0/S_AXI_I3C_SPARE reg0 S_AXI_I3C_SPARE   TRUE  /$htgI3cClockPin
 register_axi_subordinate axi_interconnect_0 M02_AXI 0xA4040000 0x00002000 caliptra_package_top_0/S_AXI_LCC       reg0 S_AXI_LCC         FALSE /htg940_clocks/clk_out1
 register_axi_subordinate axi_interconnect_0 M03_AXI 0xA8000000 0x01000000 caliptra_package_top_0/S_AXI_MCI       reg0 S_AXI_MCI         TRUE  /htg940_clocks/clk_out1
 register_axi_subordinate axi_interconnect_0 M04_AXI 0xB0040000 0x00020000 caliptra_package_top_0/S_AXI_MCU_ROM   reg0 S_AXI_MCU_ROM     TRUE  /htg940_clocks/clk_out1
@@ -247,7 +277,7 @@ register_axi_subordinate axi_interconnect_0 M05_AXI 0xA4060000 0x00002000 calipt
 register_axi_subordinate axi_interconnect_0 M06_AXI 0xA4010000 0x00004000 caliptra_package_top_0/S_AXI_WRAPPER   reg0 S_AXI_WRAPPER     FALSE /htg940_clocks/clk_out1
 register_axi_subordinate axi_interconnect_0 M07_AXI 0xB0080000 0x00010000 otp_ram_bram_ctrl_0/S_AXI              Mem0 S_AXI_OTP_RAM     TRUE  /htg940_clocks/clk_out1
 register_axi_subordinate axi_interconnect_0 M08_AXI 0xB00C0000 0x00040000 staging_sram_bram_ctrl_0/S_AXI         Mem0 S_AXI_STAGING_SRAM FALSE /htg940_clocks/clk_out1
-register_axi_subordinate axi_interconnect_0 M09_AXI 0xA4080000 0x00001000 xilinx_i3c_0/S_AXI                     Reg  S_AXI_XILINX_I3C  FALSE /htg940_clocks/clk_out2
+register_axi_subordinate axi_interconnect_0 M09_AXI 0xA4080000 0x00001000 xilinx_i3c_0/S_AXI                     Reg  S_AXI_XILINX_I3C  FALSE /$htgI3cClockPin
 register_axi_subordinate axi_interconnect_0 M10_AXI 0xA4081000 0x00001000 axi_cdma_0/S_AXI_LITE                  Reg  S_AXI_XILINX_DMA  FALSE /htg940_clocks/clk_out1
 register_axi_subordinate axi_interconnect_0 M11_AXI 0xB0000000 0x00020000 cptra_rom_backdoor_bram_0/S_AXI        Mem0 S_AXI_CALIPTRA_ROM FALSE /htg940_clocks/clk_out1
 register_axi_subordinate axi_interconnect_0 M12_AXI 0xB0020000 0x00020000 mcu_rom_backdoor_bram_0/S_AXI          Mem0 S_AXI_SS_ROM       FALSE /htg940_clocks/clk_out1
@@ -367,7 +397,7 @@ for {set i 1} {$i <= $axi_subordinates(ID)} {incr i} {
 # Clock and reset connections
 # -----------------------------------------------------------------------------
 connect_bd_net [get_bd_ports reset_n] [get_bd_pins proc_sys_reset_0/ext_reset_in]
-connect_bd_net [get_bd_pins htg940_clocks/locked] \
+connect_bd_net [get_bd_pins $htgClockLockedPin] \
                [get_bd_pins proc_sys_reset_0/dcm_locked]
 connect_bd_net [get_bd_pins aux_reset_const_0/dout] \
                [get_bd_pins proc_sys_reset_0/aux_reset_in]
@@ -385,7 +415,7 @@ connect_bd_net [get_bd_pins htg940_clocks/clk_out1] \
   [get_bd_pins axi_cdma_0/s_axi_lite_aclk] \
   [get_bd_pins axi_cdma_0/m_axi_aclk]
 
-connect_bd_net [get_bd_pins htg940_clocks/clk_out2] \
+connect_bd_net [get_bd_pins $htgI3cClockPin] \
   [get_bd_pins axi_interconnect_0/aclk1] \
   [get_bd_pins caliptra_package_top_0/i3c_clk] \
   [get_bd_pins xilinx_i3c_0/s_axi_aclk] \
@@ -550,6 +580,16 @@ if {$HTG_XDC ne ""} {
 }
 
 validate_bd_design
+if {$CORE_CLK_MHZ == 60} {
+  foreach {pin expectedHz} [list htg940_clocks/clk_out1 60000000 \
+      $htgI3cClockPin [expr {int($I3C_CLK_MHZ * 1000000)}]] {
+    set actualHz [get_property CONFIG.FREQ_HZ [get_bd_pins $pin]]
+    if {$actualHz != $expectedHz} {
+      error "Clock $pin: expected $expectedHz Hz, generated $actualHz Hz"
+    }
+    puts "HTG940_EXACT_CLOCK_PASS: $pin $actualHz Hz"
+  }
+}
 # HTG940_PACKAGING_FIX_V1: check inferred polarity after BD propagation.
 set inferredResetHigh [get_property CONFIG.C_EXT_RESET_HIGH [get_bd_cells proc_sys_reset_0]]
 if {$inferredResetHigh != 0} {

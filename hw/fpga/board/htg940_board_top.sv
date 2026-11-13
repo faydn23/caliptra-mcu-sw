@@ -1,6 +1,8 @@
 // HTG940 physical boundary, NXP connector profile: USB FMC D; I3C FMC C; no external processor JTAG.
 // This module supplies board I/O only; it does not supply entropy or host software.
-module htg940_board_top (
+module htg940_board_top #(
+    parameter integer CORE_CLK_HZ = 18000000
+) (
     input wire ref_clock_156p25mhz_clk_p,
     input wire ref_clock_156p25mhz_clk_n,
     // HTG940_ENTROPY_CONTROL_V1; CP2103 TXD->FPGA RX, FPGA TX->CP2103 RXD.
@@ -32,7 +34,7 @@ module htg940_board_top (
         else controller_reset_sync <= {controller_reset_sync[0],1'b1};
     end
     // Independent reset: stays alive when the host holds Caliptra in reset.
-    htg940_entropy_uart u_entropy_uart (
+    htg940_entropy_uart #(.CLK_HZ(CORE_CLK_HZ)) u_entropy_uart (
         .clk(board_core_clk), .reset_n(controller_reset_sync[1]),
         .uart_rx(host_uart_rx_i), .uart_tx(host_uart_tx_o),
         .cmd_valid(cmd_valid), .cmd(cmd), .cmd_data(cmd_data),
@@ -77,23 +79,24 @@ module htg940_board_top (
     IOBUF u_i3c_sda (.IO(cptra_ss_i3c_sda_io), .O(sda_sample),
                     .I(~sda_invert), .T(sda_disable | ~board_reset_n));
 
-    // Hold PHY reset for ~10 ms at the requested 18 MHz core clock.
-    // Actual hold time is 180000 / actual generated core frequency.
+    // Preserve the 10 ms PHY hold across generated core clock frequencies.
+    localparam integer PHY_HOLD_CYCLES = CORE_CLK_HZ / 100;
+    localparam integer PHY_HOLD_WIDTH = $clog2(PHY_HOLD_CYCLES + 1);
     wire phy_reset_async_n = board_reset_n & usb_phy_resetn_i;
     (* ASYNC_REG = "TRUE" *) reg [1:0] phy_reset_sync = 2'b00;
-    reg [17:0] phy_hold_count = 18'd0;
+    reg [PHY_HOLD_WIDTH-1:0] phy_hold_count = '0;
     reg [25:0] heartbeat = 26'd0;
     always @(posedge board_core_clk or negedge phy_reset_async_n) begin
         if (!phy_reset_async_n) phy_reset_sync <= 2'b00;
         else phy_reset_sync <= {phy_reset_sync[0], 1'b1};
     end
     always @(posedge board_core_clk or negedge phy_reset_async_n) begin
-        if (!phy_reset_async_n) phy_hold_count <= 18'd0;
-        else if (!phy_reset_sync[1]) phy_hold_count <= 18'd0;
-        else if (phy_hold_count != 18'd180000)
+        if (!phy_reset_async_n) phy_hold_count <= '0;
+        else if (!phy_reset_sync[1]) phy_hold_count <= '0;
+        else if (phy_hold_count != PHY_HOLD_CYCLES)
             phy_hold_count <= phy_hold_count + 1'b1;
     end
-    assign usb_phy_resetn_o = phy_reset_async_n & (phy_hold_count == 18'd180000);
+    assign usb_phy_resetn_o = phy_reset_async_n & (phy_hold_count == PHY_HOLD_CYCLES);
     always @(posedge board_core_clk or negedge board_reset_n) begin
         if (!board_reset_n) heartbeat <= 26'd0;
         else heartbeat <= heartbeat + 1'b1;

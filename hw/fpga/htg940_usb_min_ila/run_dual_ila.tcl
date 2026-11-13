@@ -1,13 +1,34 @@
 set diagnosticDir [file dirname [file normalize [info script]]]
 set fpgaDir [file dirname $diagnosticDir]
+set htgCoreClockMHz 60
 cd $fpgaDir
 set firmwareArgs [lsearch -all -inline -glob $argv FW_IMAGE_DIR=*]
 if {[llength $firmwareArgs] > 1} {error "Only one FW_IMAGE_DIR is allowed"}
+set versionArgs [lsearch -all -inline -glob $argv VERSION=*]
+if {[llength $versionArgs] > 1} {error "Only one VERSION is allowed"}
+if {[llength $versionArgs] == 1 &&
+    ![regexp {^VERSION=[0-9a-fA-F]{1,8}$} [lindex $versionArgs 0]]} {
+    error "VERSION must be one to eight hexadecimal digits"
+}
+set htgForceUlpiMode [expr {[lsearch -exact $argv FORCE_ULPI_MODE] >= 0}]
+set htgSoftwareUlpiStartup [expr {[lsearch -exact $argv SOFTWARE_ULPI_STARTUP] >= 0}]
+if {$htgForceUlpiMode && $htgSoftwareUlpiStartup} {
+    error "FORCE_ULPI_MODE and SOFTWARE_ULPI_STARTUP are mutually exclusive"
+}
+set requestedMode REGISTER_CONTROLLED
+if {$htgForceUlpiMode} {set requestedMode FORCED_ULPI}
+if {$htgSoftwareUlpiStartup} {set requestedMode SOFTWARE_ULPI_STARTUP}
 set mcuUsbOnly [expr {[lsearch -exact $argv MCU_USB_ONLY] >= 0}]
 set outputName [expr {$mcuUsbOnly ?
     "htg940_usb_min_ila/build_mcu_usb_only" : "htg940_usb_min_ila/build_iobuf_dual"}]
 set buildNameArgs [lsearch -all -inline -glob $argv BUILD_NAME=*]
 if {[llength $buildNameArgs] > 1} {error "Only one BUILD_NAME is allowed"}
+if {$htgForceUlpiMode && ([llength $buildNameArgs] != 1 || $mcuUsbOnly)} {
+    error "FORCE_ULPI_MODE requires a separate BUILD_NAME=build_full_<suffix>"
+}
+if {$htgSoftwareUlpiStartup && ([llength $buildNameArgs] != 1 || $mcuUsbOnly)} {
+    error "SOFTWARE_ULPI_STARTUP requires a separate BUILD_NAME=build_full_<suffix>"
+}
 if {[llength $buildNameArgs] == 1} {
     set buildName [string range [lindex $buildNameArgs 0] 11 end]
     set namePattern [expr {$mcuUsbOnly ?
@@ -38,6 +59,20 @@ proc require_complete {runName} {
 if {$resume || $restartSynth} {
     if {![file exists $project]} {error "Missing project: $project"}
     open_project $project
+    if {[lsearch -exact [get_property generic [get_filesets sources_1]] \
+        CORE_CLK_HZ=60000000] < 0} {
+        error "Resume requires the 60 MHz board profile; create a fresh build instead."
+    }
+    set modeFile [file join [file dirname $project] htg_phy_mode.txt]
+    set savedMode REGISTER_CONTROLLED
+    if {[file isfile $modeFile]} {
+        set fh [open $modeFile r]
+        set savedMode [string trim [read $fh]]
+        close $fh
+    }
+    if {$savedMode ne $requestedMode} {
+        error "PHY mode mismatch: project=$savedMode requested=$requestedMode; create a fresh build."
+    }
     if {$restartSynth} {
         source [file join $diagnosticDir isolate_dual_ila_constraints.tcl]
         foreach ipRun [get_runs -quiet *_synth_1] {
@@ -70,19 +105,11 @@ if {$resume || $restartSynth} {
         error "Output exists; use RESUME. The old build is preserved."
     }
     set HTG_ULPI_DIAGNOSTICS true
-    set argv [list BUILD=FALSE GUI=FALSE OUTPUT_DIR=$outputName CORE_CLK_MHZ=40 DEBUG=FALSE]
+    set argv [list BUILD=FALSE GUI=FALSE OUTPUT_DIR=$outputName \
+        CORE_CLK_MHZ=$htgCoreClockMHz DEBUG=FALSE]
     lappend argv MCU_USB_ONLY=$mcuUsbOnly STUB_ADAMS_BRIDGE=FALSE STUB_ECC=FALSE
-    set argv [concat $argv $firmwareArgs]
+    set argv [concat $argv $firmwareArgs $versionArgs]
     source [file join $fpgaDir fpga_configuration_htg940_hw.tcl]
-    foreach filename {htg940_board_top.sv htg940_entropy_uart.sv} {
-        set original [file normalize [file join $fpgaDir board $filename]]
-        set sourceFile [get_files -quiet $original]
-        if {[llength $sourceFile] != 1} {error "Missing original source $original"}
-        remove_files $sourceFile
-        set replacement [file normalize [file join $fpgaDir htg940_40mhz_20260928 $filename]]
-        add_files -norecurse $replacement
-        set_property file_type SystemVerilog [get_files $replacement]
-    }
     update_compile_order -fileset sources_1
     set profileDefines [get_property verilog_define [get_filesets sources_1]]
     if {!$mcuUsbOnly} {
@@ -126,6 +153,8 @@ if {!$implement} {
     exit
 }
 save_constraints
+# Vivado can serialize a temporary debug clock alias absent from the synth DCP.
+min_save_debug_clocks $localDebug $htgDebugClockPins
 close_design
 if {$restartImpl} {
     if {![info exists ::env(HTG_IMPL_RESTART_ARCHIVE)]} {

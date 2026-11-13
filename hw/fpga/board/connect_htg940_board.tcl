@@ -1,9 +1,8 @@
 # Sourced while caliptra_htg940_bd is open, before validate_bd_design.
-foreach {port pin} {
-    board_core_clk htg940_clocks/clk_out1
-    board_reset_n proc_sys_reset_0/peripheral_aresetn
-    board_clock_locked htg940_clocks/locked
-} {
+foreach {port pin} [list \
+    board_core_clk htg940_clocks/clk_out1 \
+    board_reset_n proc_sys_reset_0/peripheral_aresetn \
+    board_clock_locked $htgClockLockedPin] {
     if {[llength [get_bd_ports -quiet $port]]} {error "Duplicate board port: $port"}
     set endpoint [get_bd_pins -quiet $pin]
     if {[llength $endpoint] != 1} {error "Missing board connection: $pin"}
@@ -13,6 +12,8 @@ foreach {port pin} {
 set boardTop [file join $fpgaDir board htg940_board_top.sv]
 add_files -norecurse $boardTop
 set_property file_type SystemVerilog [get_files $boardTop]
+set_property generic [list CORE_CLK_HZ=[expr {int($CORE_CLK_MHZ * 1000000)}]] \
+    [get_filesets sources_1]
 
 # HTG940_ENTROPY_CONTROL_V1
 # HTG940_PACKAGING_FIX_V1

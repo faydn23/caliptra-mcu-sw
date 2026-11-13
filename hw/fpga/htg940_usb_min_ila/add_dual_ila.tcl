@@ -37,6 +37,31 @@ proc min_schema_probes {schema} {
     }
     return $probes
 }
+proc min_save_debug_clocks {path clockPins} {
+    set fh [open $path r]
+    set text [read $fh]
+    close $fh
+    dict for {port pin} $clockPins {
+        set count 0
+        set lines {}
+        foreach line [split $text "\n"] {
+            if {[regexp {^\s*connect_debug_port\s+(\S+)\s+} $line -> savedPort] &&
+                $savedPort eq $port} {
+                set line [format {connect_debug_port %s [get_nets -of_objects [get_pins %s]]} \
+                    $port [list $pin]]
+                incr count
+            }
+            lappend lines $line
+        }
+        if {$count != 1} {
+            error "$path: expected one saved clock connection for $port, found $count"
+        }
+        set text [join $lines "\n"]
+    }
+    set fh [open $path w]
+    puts -nonewline $fh $text
+    close $fh
+}
 proc min_add_ila {name clk probes} {
     create_debug_core $name ila
     set core [get_debug_cores $name]
@@ -75,6 +100,12 @@ set tnet [min_one [lsort -unique $tristate] "shared ULPI IOBUF tristate"]
 set hub */usb_core_i/u_hub_compound
 set ulpiClock [min_hier_pin_net $hub/usb_pie_1/pie_clk]
 set coreClock [min_hier_pin_net $hub/usb_reg_if_1/hclk]
+set htgDebugClockPins [dict create \
+    ulpi_min_ila/clk [min_one [get_pins -quiet -hier -filter \
+        "NAME =~ $hub/usb_pie_1/pie_clk"] "ULPI clock pin"] \
+    usb_core_ila/clk [min_one [get_pins -quiet -hier -filter \
+        "NAME =~ $hub/usb_reg_if_1/hclk"] "core clock pin"]]
+dict set htgDebugClockPins dbg_hub/clk [dict get $htgDebugClockPins usb_core_ila/clk]
 set dirCell [min_pad_buffer cptra_ss_usb_ulpi_dir_i IBUF I]
 set nxtCell [min_pad_buffer cptra_ss_usb_ulpi_nxt_i IBUF I]
 set stpCell [min_pad_buffer cptra_ss_usb_ulpi_stp_o OBUF O]
@@ -84,13 +115,18 @@ set ulpiProbes [list \
     [list FMC_DIR [list [min_pin_net [get_pins "$dirCell/O"]]]] \
     [list FMC_NXT [list [min_pin_net [get_pins "$nxtCell/O"]]]] \
     [list FMC_STP [list [min_pin_net [get_pins "$stpCell/I"]]]] \
-    [list FPGA_DATA_RELEASE [list $tnet]] \
-    [list USB_ULPI_TXENABLE [list [min_hier_pin_net $hub/ulpi_txenable]]]]
+    [list FPGA_DATA_RELEASE [list $tnet]]]
 set ulpiProbes [concat $ulpiProbes [min_schema_probes $htg_ulpi_schema]]
 set coreProbes [min_schema_probes $htg_core_schema]
 set heartbeat [min_one [get_nets -quiet -hier -filter \
     {NAME =~ */cptra_wrapper/htg_ulpi_clock_activity}] "synchronized ULPI activity"]
 lappend coreProbes [list ULPI_CLOCK_ACTIVITY_SYNC [list $heartbeat]]
+set phyResetIn [min_pad_buffer usb_phy_resetn_i IBUF I]
+set phyResetOut [min_pad_buffer usb_phy_resetn_o OBUF O]
+lappend coreProbes [list PHY_RESET_N_INPUT_RAW \
+    [list [min_pin_net [get_pins "$phyResetIn/O"]]]]
+lappend coreProbes [list PHY_RESET_N_OUTPUT_TO_DAUGHTER \
+    [list [min_pin_net [get_pins "$phyResetOut/I"]]]]
 puts "HTG_PROBES_VALIDATED: eight IOBUFs, ULPI and core-domain probes resolved."
 if {![info exists htgValidateOnly] || !$htgValidateOnly} {
     min_add_ila ulpi_min_ila $ulpiClock $ulpiProbes
@@ -102,6 +138,6 @@ if {![info exists htgValidateOnly] || !$htgValidateOnly} {
     puts "HTG_DUAL_ILA_ONLY_VERIFIED: $actual"
     set debugHub [min_one [get_debug_cores -quiet dbg_hub] "debug hub"]
     connect_debug_port dbg_hub/clk [get_nets [list $coreClock]]
-    set_property C_CLK_INPUT_FREQ_HZ 40000000 $debugHub
-    puts "HTG_DEBUG_HUB_CLOCK: free-running 40 MHz core clock $coreClock"
+    set_property C_CLK_INPUT_FREQ_HZ [expr {$htgCoreClockMHz * 1000000}] $debugHub
+    puts "HTG_DEBUG_HUB_CLOCK: free-running $htgCoreClockMHz MHz core clock $coreClock"
 }
