@@ -101,7 +101,10 @@ Vivado exposes the `STEPS.PLACE_DESIGN.ARGS.SUBDIRECTIVE` run property. Otherwis
 it prints a warning and uses the `Explore` directive alone. Check placement and
 timing results before using the generated image.
 
-This FPGA configuration targets Caliptra SS at `69a8afa1` and its pinned submodules.
+This FPGA configuration targets Caliptra SS at `69a8afa1` with Core RTL
+`d88da5d1` from `user/dev/michnorris/review_items` and its pinned Adams Bridge
+revision. This overrides SS's original Core RTL pin. The FPGA SS-top patch
+connects MCI's DCLS enable signal to the Core's renamed `dcls_en` input.
 The FPGA wrapper preserves the existing I3C and backdoor ROM/OTP interfaces,
 provides the new 4 KiB MCU ROM-patch SRAM, and uses TRNG source 0 with source 1
 disabled. The Adams Bridge memory instance enables masking to match `abr_top`,

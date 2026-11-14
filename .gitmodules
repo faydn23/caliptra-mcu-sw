@@ -8,7 +8,7 @@
 	branch = caliptra-main
 [submodule "hw/latest/caliptra-ss"]
 	path = hw/latest/caliptra-ss
-	url = https://github.com/chipsalliance/caliptra-ss
+	url = https://github.com/faydn23/caliptra-ss.git
 [submodule "core/caliptra-sw"]
 	path = core/caliptra-sw
 	url = https://github.com/chipsalliance/caliptra-sw

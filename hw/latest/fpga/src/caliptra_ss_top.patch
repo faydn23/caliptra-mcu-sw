@@ -10,6 +10,12 @@
 60a68,69
 >     // TODO: Hacking in this i3c clock
 >     input logic cptra_i3c_clk_i,
+728,729c737,738
+<         // DCLS corruption-detection enable, driven by MCI HW_CAPABILITIES (MCU-provisioned)
+<         .ss_dcls_en             (cptra_ss_dcls_en),
+---
+>         // DCLS enable, driven by MCI HW_CAPABILITIES (MCU-provisioned)
+>         .dcls_en                (cptra_ss_dcls_en),
 1177a1187,1242
 >     logic i3c_rst_sync;
 >     xpm_cdc_async_rst #(
