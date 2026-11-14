@@ -1,190 +1,150 @@
-HTG940 full-build and dual-ILA support scripts
-============================================
+HTG940 build profiles and dual-ILA reference
+==========================================
 
-This directory is NOT a separate MCU-only design or an old build output.
-The historical "usb_min_ila" name is retained to preserve the working flow.
-The prepared entry point selects the FULL MCU + Caliptra core/crypto + USB
-profile, with two ILAs and a 60 MHz core clock.
-The November 5 source update uses SS main 164dfbd6 with the same USB2/core
-pins and probe layout as the SS984 baseline. The obsolete subsystem SPI
-host/UART connections are removed; board entropy UART is unchanged.
-The subsystem clock is now 60 MHz, matching upstream's minimum without
-I3C. Board UART and debug-hub settings follow that frequency; PHY reset
-still holds for 10 ms. The external ULPI clock remains 60 MHz.
-The 120 MHz I3C clock is derived through a second clock wizard so the core
-is exactly 60 MHz rather than a rounded-down shared-MMCM output. Both lock
-signals gate reset release, and BD validation checks the generated rates.
-The legacy htg940_40mhz_20260928 board copies are no longer selected.
-RESUME/RESTART_SYNTH reject old profiles; use a fresh 60 MHz build name.
-Timing closure, actual PHY startup and USB operation still need validation.
+This historical directory name does not select an MCU-only design.
+The supported flow is the full HTG940 system at 60 MHz core, external
+60 MHz ULPI and separately generated 120 MHz I3C, with two ILAs.
+Start with ../README.md for the diagram, current build command, address
+map and required external firmware inputs.
 
-Forced-ULPI A/B diagnostic
--------------------------
-Add FORCE_ULPI_MODE and a separate BUILD_NAME=build_full_<suffix> to the
-runner arguments. Only the generated compound architecture is changed:
-the hub mode output is disconnected and the shared usbreg_phy_mode is tied
-to 1, including during reset. The synchronizer passes this mode directly
-to phy_mode, selecting the external ULPI clock in normal (non-scan) mode.
-Without the flag, the existing register-controlled behavior is preserved.
-Original USB2/SS sources, reset logic, register-access handshakes, clock
-frequencies and ILA layout are unchanged. The core ILA mode probe sees the
-forced effective mode; hub register bit 31 readback still reflects software.
-htg_phy_mode.txt records the generated profile. RESUME/RESTART_SYNTH must
-use the same FORCE_ULPI_MODE selection; old projects without a marker are
-treated as register-controlled. Never reuse an existing build for the A/B.
-This is not a timing fix or a verified hardware recovery fix.
+Current branch: htg940_dual_mcu_shared_usb
+Current dual-MCU build selection: DUAL_MCU FORCE_ULPI_MODE
+Both flags must be passed explicitly; neither is enabled by default.
 
-For source snapshots without Git metadata, invoke run_dual_ila.tcl directly
-with VERSION=52a124ef and an explicit FW_IMAGE_DIR. VERSION is the frozen
-FPGA identification value, not verification of the snapshot's commits.
-The normal ../htg940/run_full.tcl entry retains its Git pin/patch checks.
-Use identical MCU/Core ROM BINs and flash payload for both A/B images.
+Dual-MCU profile
+----------------
+DUAL_MCU adds MCU1/MCI1 for DEV1, keeping MCU0/MCI0 for DEV0 and common
+hub/PHY initialization. There is one Caliptra Core, one USB compound,
+one hub/PIE, one USB3320 PHY and the existing shared OTP/lifecycle/I3C.
+The dual-MCU generator changes no USB/ULPI sources or mode selection.
 
-Prepared November 10 snapshot command (user submits; no job is launched by
-source preparation):
-  cd /home/furkanaydin/ws3/htg940_clean/caliptra-mcu-sw/hw/fpga
-  submit --memory 168 --name htg940_force_ulpi_a5_60mhz \
-    --project caliptra.fe.caliptra --licenses Synopsys_Vivado_Bundle \
-    /home/cad/tools/synopsys/xilinx_vivado/2025.1_rel2/Vivado/bin/vivado \
-    -mode batch -log htg940_force_ulpi_a5_60mhz.log \
-    -journal htg940_force_ulpi_a5_60mhz.jou \
-    -source "$PWD/htg940_usb_min_ila/run_dual_ila.tcl" \
-    -tclargs VERSION=52a124ef FORCE_ULPI_MODE \
-    BUILD_NAME=build_full_force_ulpi_a5_20261110 \
-    FW_IMAGE_DIR="$PWD/htg940/firmware_force_ulpi_a5_20261110" IMPLEMENT
+Generated subsystem instances:
+  mcu0 / mci0
+  soc_controller.mcu1 / soc_controller.mci1
+MCU1 has private CPU memories, MCI SRAM, ROM-patch SRAM, mailboxes and
+local reset/halt loops. It receives DEV1's USB IRQ. Its MCI observes real
+shared lifecycle/OTP completion/status without driving shared control.
+MCU1 JTAG is inactive. No additional MCU1 UART logging is introduced.
 
-The dedicated firmware directory contains unchanged MCU/Core ROMs copied
-from ws3/43_test_a5 and the previous firmware_minimal_ila_20261025 flash
-payload. Generated MEM/COE files are confined to that dedicated directory.
-The output BIT/LTX/MMI are under:
-  build_full_force_ulpi_a5_20261110/caliptra_htg940_project.runs/impl_1/
-The external PHY clock must be available for USB reset release. Do not
-program an older LTX with the new BIT. Timing and actual scratch readback
-remain hardware/build acceptance checks.
+MCU1 IFU/LSU/system AXI managers connect to S05/S06/S07 of the common
+arbitrated main fabric. That fabric has 8 inputs and 16 outputs. A 1-to-3
+M15 branch serves firmware flash, MCI1 and MCU1 ROM: SmartConnect above
+16 outputs forces a single-manager topology. The USB bridge is unchanged.
 
-Software-selected ULPI startup experiment
-----------------------------------------
-Add SOFTWARE_ULPI_STARTUP and a new BUILD_NAME=build_full_<suffix>.
-This is mutually exclusive with FORCE_ULPI_MODE. It is an ULPI-only
-HTG940 experiment, not a general runtime UTMI/ULPI clock-switch controller.
-The generated architecture asserts C_ULPI_SUPPORT and not C_UTMI_SUPPORT.
-Original USB2/SS sources and both existing profiles are preserved.
+Existing addresses are preserved. Added windows:
+  MCI1:     0xA9000000 .. 0xA9FFFFFF
+  MCU1 ROM: 0xB0060000 .. 0xB007FFFF (also MCU1's reset vector)
+MCU1 AXI USER is 2. MCI1 SoC-configuration USER is 1.
 
-The hub still owns ULPIDEBUG.PhyMode (bit 31); neither its output nor the
-shared mode signal is forced. PIE clock is always the external ULPI clock,
-so changing the software mode bit cannot switch clock sources.
-The existing two-edge USB reset synchronizer is held in reset until
-hresetn AND (PhyMode OR testmode) is high. Configuration/AHB registers
-keep their existing subsystem resets, so firmware can select ULPI and
-leave PHY_ACCESS pending while the USB clock/reset domain starts.
-No new ready register, firmware changes, clock frequencies, I/O timing
-exceptions, PHY pin reset changes or general clock-mux primitive are added.
-The external PHY must supply its clock for USB reset release and progress.
+Shared USB ownership is a firmware contract, not an AXI permission
+boundary. MCU0 must initialize common hardware and leave DEV1 available.
+MCU1 must use its own MCI base/reset vector and must not repeat shared
+hub/PHY initialization. Coordinated firmware is not supplied here.
 
-The supported use is selecting ULPI during boot before USB transfers.
-Clearing PhyMode reasserts the local USB reset; do not use it to switch
-modes during active USB traffic. Firmware must retain bit 31 in subsequent
-ULPIDEBUG writes. This is a proposed startup fix, not a proven root cause.
-HDL simulation was explicitly skipped for this experiment at user request.
-Source-generation checks do not prove scratch completion, timing closure,
-enumeration or recovery; those remain build/hardware acceptance checks.
+MCU1 ROM is zero-filled as a patchable MMI placeholder, not a boot image.
+Before programming, use ../htg940_update_roms.py with matching new BIT/MMI
+and --core-rom <core.bin> --mcu-rom <mcu0.bin> --mcu1-rom <mcu1.bin>.
+MCU1 uses mcu1_rom; existing Core and MCU0 MMI names are retained.
 
-The core ILA appends htg_pie_reset_n (local reset request) and reset_n
-(PIE-domain synchronized reset) after the existing schema probes.
-PhyMode continues to show the software-requested mode. Use the new LTX.
-htg_phy_mode.txt records SOFTWARE_ULPI_STARTUP; resume/restart must request
-the same profile. Existing FORCED_ULPI builds and their outputs are not reused.
+Full build entry point
+---------------------
+Use ../htg940/run_full.tcl after preparing the pinned dependencies.
+From the repository root, with Vivado on PATH:
 
-Prepared snapshot command (user submits; no job launched automatically):
-  cd /home/furkanaydin/ws3/htg940_clean/caliptra-mcu-sw/hw/fpga
-  submit --memory 168 --name htg940_sw_ulpi_a5_60mhz \
-    --project caliptra.fe.caliptra --licenses Synopsys_Vivado_Bundle \
-    /home/cad/tools/synopsys/xilinx_vivado/2025.1_rel2/Vivado/bin/vivado \
-    -mode batch -log htg940_sw_ulpi_a5_60mhz.log \
-    -journal htg940_sw_ulpi_a5_60mhz.jou \
-    -source "$PWD/htg940_usb_min_ila/run_dual_ila.tcl" \
-    -tclargs VERSION=52a124ef SOFTWARE_ULPI_STARTUP \
-    BUILD_NAME=build_full_sw_ulpi_a5_20261110 \
-    FW_IMAGE_DIR="$PWD/htg940/firmware_sw_ulpi_a5_20261110" IMPLEMENT
+  vivado -mode batch -source hw/fpga/htg940/run_full.tcl \
+    -tclargs DUAL_MCU FORCE_ULPI_MODE \
+    BUILD_NAME=build_full_dual_mcu_shared_usb \
+    FW_IMAGE_DIR=/absolute/path/to/writable/firmware IMPLEMENT
 
-The dedicated firmware directory contains the exact MCU/Core ROM BINs
-from ws3/45_test_a5_reset_disable_ulpi and the unchanged flash payload
-from firmware_force_ulpi_a5_20261110. MEM/COE generation stays in this copy.
-Compare against the forced-ULPI image with these same ROM BINs.
-Outputs:
-  build_full_sw_ulpi_a5_20261110/caliptra_htg940_project.runs/impl_1/
-  htg940_board_top.bit, htg940_board_top.mmi, htg940_usb_dual_ila.ltx
+The firmware directory must contain caliptra_rom.bin (98304 bytes),
+mcu_rom.bin (131072 bytes, MCU0) and flash_image.bin (at most 2 MiB).
+MEM/COE generation writes into that directory. Firmware and generated
+FPGA outputs are not committed.
 
-Contents:
-  run_dual_ila.tcl                 Project, synthesis and implementation flow
-  add_dual_ila.tcl                 Dual-ILA insertion and hierarchy checks
-  probe_schema.tcl                ULPI/core probe definitions
-  prepare_debug_sources.tcl       Build-local RTL debug attributes
-  isolate_dual_ila_constraints.tcl Build-local board/debug constraint setup
-  prepare_dual_ila_constraints.py Saved-debug constraint filtering
-  test_prepare_dual_ila_constraints.py Focused constraint-filter tests
+Always use a fresh BUILD_NAME=build_full_<suffix>. DUAL_MCU is not
+compatible with MCU_USB_ONLY. MCU-only preparation helpers are not part
+of this source handoff. Keep the full-system profile.
 
-Start the full build through ../htg940/run_full.tcl.
-See ../htg940/README.txt for source preparation, firmware inputs and build command.
+Without DUAL_MCU, the existing single-MCU build is preserved.
+run_dual_ila.tcl is the low-level entry point; for a Gitless source
+snapshot it accepts VERSION=<1-to-8 hexadecimal digits>. The frozen
+snapshot value 52a124ef identifies the old FPGA version, not the new
+branch commit or provenance. Use run_full.tcl for a prepared Git clone.
 
-New build outputs are generated under build_full_<suffix>/ in this directory.
-Those directories are ignored by Git and were not copied from the old workspace.
-The former MCU-only preparation helpers are not included in this full-build copy;
-do not invoke the MCU_USB_ONLY option.
+Outputs are under build_full_<suffix>/caliptra_htg940_project.runs/impl_1/:
+  htg940_board_top.bit
+  htg940_board_top.mmi
+  htg940_usb_dual_ila.ltx
+The full build must be submitted by the user. Source preparation does
+not submit a scheduler job or program the FPGA.
 
-Isolated routed timing optimization
-----------------------------------
-Run optimize_routed_timing.tcl with Vivado -mode batch -source and -tclargs
-INPUT_ROUTED_DCP NEW_OUTPUT_DIRECTORY. The output directory must not exist.
-This flow applies AggressiveExplore physical optimization followed by Explore
-routing without changing clock definitions, I/O budgets or timing exceptions.
-The source project, checkpoint and bitstream are preserved.
+Resume/restart guards
+---------------------
+RESUME and RESTART_SYNTH preserve existing outputs and require matching
+60 MHz clock, ULPI profile and MCU count. htg_phy_mode.txt records PHY
+selection; htg_mcu_count.txt records the added pair. Missing MCU-count
+markers mean one MCU. Never resume an old build as a dual-MCU project.
+RESTART_SYNTH also requires the explicit HTG_SYNTH_RESTART_ARCHIVE path.
+RESTART_IMPL requires RESUME IMPLEMENT.
 
-Baseline/candidate reports cover setup/hold, unconstrained paths, ULPI I/O,
-clock interaction, CDC, DRC and routing. The candidate checkpoint is retained
-even if setup/hold fails (exit 2, STATUS=TIMING_FAILED). Nonnegative setup/hold
-only passes the slack gate: pulse width, constraints coverage, CDC, DRC and
-routing still require review. No bitstream is generated by this diagnostic.
-RTL simulation does not validate physical timing; board PHY identity, USB
-enumeration and recovery must be checked before claiming a hardware fix.
+Forced-ULPI profile (current)
+----------------------------
+FORCE_ULPI_MODE modifies only generated compound RTL. The hub's mode
+output is disconnected and usbreg_phy_mode is tied to 1 from reset.
+Existing clock/reset logic and mode-register readback remain unchanged.
+The core ILA mode probe sees the forced effective mode. The hub register
+bit still reports software's requested value, not that forced connection.
+This profile requires a separate full BUILD_NAME.
+Without either ULPI flag, the existing register-controlled mode remains.
 
-Test the control flow with:
+Software-selected startup experiment (optional)
+-----------------------------------------------
+SOFTWARE_ULPI_STARTUP is mutually exclusive with FORCE_ULPI_MODE.
+It requires ULPI-only hardware, with C_ULPI_SUPPORT enabled and UTMI off.
+The hub retains software control of ULPIDEBUG.PhyMode bit 31.
+PIE uses the external ULPI clock directly. Its two-edge local reset
+synchronizer is held until hresetn AND (PhyMode OR testmode) is high.
+Configuration/AHB register resets and physical PHY reset are unchanged.
+testmode is the existing scan/DFT input, not a USB scratch-test mode.
+
+This experiment supports selecting ULPI at boot, not mode switching
+during active transfers. Clearing PhyMode reasserts local USB reset.
+Firmware must retain bit 31 in subsequent ULPIDEBUG writes. The PHY
+must provide the external clock for reset release and progress.
+The core ILA appends htg_pie_reset_n and the synchronized PIE reset.
+This does not prove a root cause, safe arbitrary clock switching,
+enumeration or recovery. It is not the selected forced-ULPI profile.
+
+Debug and optional timing tools
+-------------------------------
+Only two ILAs are inserted. The ULPI-clock ILA covers physical data,
+DIR/NXT/STP, output enable, PHY transaction state and access completion.
+The core ILA covers common hub PHY controls, synchronized readback,
+clock/reset requests, external-clock heartbeat and PHY reset signals.
+The heartbeat only proves activity while its subsystem reset is released.
+FPGA reset-output probing does not measure voltage at the daughtercard.
+Use the new LTX matching the programmed BIT; old probe indices differ.
+
+optimize_routed_timing.tcl accepts INPUT_ROUTED_DCP NEW_OUTPUT_DIRECTORY.
+It preserves the source and timing constraints, applies physical/routing
+optimization and collects setup/hold/CDC/DRC/clock/I/O reports.
+It generates no bitstream. Passing slack alone is not full qualification.
+The output directory must not exist; failing timing retains reports and
+the candidate checkpoint with a failing status.
+
+generate_debug_candidate.tcl accepts the same two arguments. It can write
+a TIMING_FAILED_DEBUG_ONLY BIT/MMI/LTX from the supplied checkpoint,
+without relaxing timing constraints or DRC severities. Such output is
+diagnostic only and is not a timing-qualified fix. ROM contents are
+inherited and must be patched/verified separately. It does not program
+hardware.
+
+Checks
+-------
+  python3 -m unittest hw.fpga.htg940.test_fpga_integration
   python3 -m unittest discover -s hw/fpga/htg940_usb_min_ila -p 'test_*.py'
 
-Explicitly authorized debug bitstream
-------------------------------------
-generate_debug_candidate.tcl accepts INPUT_ROUTED_DCP NEW_OUTPUT_DIRECTORY.
-It preserves timing constraints and DRC severities, collects clock-mux fanin
-and timing/CDC/DRC reports, then writes a TIMING_FAILED_DEBUG_ONLY BIT/MMI/LTX.
-This is diagnostic output, NOT a timing-qualified fix. DRC errors still stop
-generation. ROM contents are inherited from the checkpoint; supplied ROMs
-must be patched and verified separately before comparing hardware results.
-No programming is performed. Existing output directories are refused.
-
-Minimal PHY-startup probes
--------------------------
-Only two ILAs are inserted. The ULPI-clock ILA retains physical DATA RX/TX,
-DIR/NXT/STP, output enable, motor state/reset, PHY request/address/direction,
-readback/completion and low-power status. Internal arbitration, duplicate
-synchronizer stages and unrelated register buses are no longer probed.
-
-The core-clock ILA observes the active hub-owned PHY address/write data,
-start/write/mode, synchronized completion/readback, reset and clock request.
-Old DEV0 PHY registers are not used as a proxy for hub PHY transactions.
-The synchronized divided external-ULPI-clock heartbeat and physical PHY
-reset input/output are also probed on the core-clock ILA. The output probe
-observes the FPGA drive signal, not reset voltage measured at the daughter
-card. The input reset is sampled raw and may be asynchronous at an edge.
-The heartbeat proves clock activity only while its subsystem reset is
-released; a static heartbeat during reset does not prove a missing clock.
-The ULPI ILA can stop during clock/reset startup; the core ILA is retained
-specifically to observe that interval. Probe indices changed: always use
-the LTX generated with the new BIT, never an older LTX.
-
-For a persistent full build use ../htg940/run_minimal_ila_batch.sh with one
-argument: an absolute shared firmware directory containing mcu_rom.bin,
-caliptra_rom.bin and flash_image.bin. Submit it as a noninteractive batch job.
-The script has no dependency on Copilot session paths. Logs go to
-build_logs_minimal_ila_20261025/; outputs go to build_full_minimal_ila_20261025/.
-Use a dedicated writable firmware copy: the standard build regenerates MEM/COE
-files there. The script refuses to overwrite an existing build directory.
+Dual-MCU source tests, SV elaboration and Vivado block-design/address-map
+checks passed. SV elaboration treats unchanged USB VHDL as external.
+Full dual-MCU synthesis, timing/resource closure, three-ROM MMI generation
+and actual USB enumeration/recovery require separate validation.

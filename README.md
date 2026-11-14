@@ -1,6 +1,24 @@
-# Caliptra MCU firmware and software
+# HTG940 dual-MCU Caliptra integration
 
-## Building
+This branch targets the **HiTech Global HTG-940 / XCVU13P** FPGA.
+It adds **MCU1/MCI1 for USB DEV1**, while **MCU0/MCI0 retain USB DEV0**
+and ownership of shared hub/PHY initialization. There is still only one
+Caliptra Core, one USB compound/hub and one external USB3320 PHY.
+
+![HTG940 dual-MCU block diagram](hw/fpga/htg940/dual_mcu_block_diagram.svg)
+
+- [HTG940 build guide, address map and ROM patching](hw/fpga/README.md)
+- [Build profiles and debug flow](hw/fpga/htg940_usb_min_ila/README.txt)
+- Branch: `htg940_dual_mcu_shared_usb`
+- Select **`DUAL_MCU FORCE_ULPI_MODE`** explicitly. These flags are not defaults.
+- Source only: firmware binaries and generated FPGA outputs are not included.
+- RTL/source checks and block-design validation passed. Full dual-MCU FPGA
+  synthesis, timing/resource closure and board operation remain unverified.
+- MCU1 ROM is a zero-filled placeholder until patched with suitable firmware.
+
+The existing software and emulator development instructions follow.
+
+## Software development
 
 Install `rustup` to manage your Rust toolchain:
 
@@ -13,7 +31,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 Do a full clone of the repository
 
 ```shell
-git clone --recursive https://github.com/chipsalliance/caliptra-mcu-sw.git
+git clone --recursive --branch htg940_dual_mcu_shared_usb https://github.com/faydn23/caliptra-mcu-sw.git
 ```
 
 Now you should be able to run all checks and builds:

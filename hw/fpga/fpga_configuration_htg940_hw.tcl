@@ -241,6 +241,14 @@ set_property -dict [list \
   CONFIG.NUM_SI   {5}  \
   CONFIG.NUM_CLKS {2}  \
 ] [get_bd_cells axi_interconnect_0]
+if {[info exists htgDualMcu] && $htgDualMcu} {
+  set_property -dict [list CONFIG.NUM_SI {8} CONFIG.NUM_MI {16} CONFIG.NUM_CLKS {2}] \
+    [get_bd_cells axi_interconnect_0]
+  # SmartConnect switches to single-manager mode above 16 outputs.
+  create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 soc_controller_interconnect_0
+  set_property -dict [list CONFIG.NUM_SI {1} CONFIG.NUM_MI {3} CONFIG.NUM_CLKS {1}] \
+    [get_bd_cells soc_controller_interconnect_0]
+}
 
 create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 usb_interconnect_0
 set_property -dict [list \
@@ -281,7 +289,13 @@ register_axi_subordinate axi_interconnect_0 M09_AXI 0xA4080000 0x00001000 xilinx
 register_axi_subordinate axi_interconnect_0 M10_AXI 0xA4081000 0x00001000 axi_cdma_0/S_AXI_LITE                  Reg  S_AXI_XILINX_DMA  FALSE /htg940_clocks/clk_out1
 register_axi_subordinate axi_interconnect_0 M11_AXI 0xB0000000 0x00020000 cptra_rom_backdoor_bram_0/S_AXI        Mem0 S_AXI_CALIPTRA_ROM FALSE /htg940_clocks/clk_out1
 register_axi_subordinate axi_interconnect_0 M12_AXI 0xB0020000 0x00020000 mcu_rom_backdoor_bram_0/S_AXI          Mem0 S_AXI_SS_ROM       FALSE /htg940_clocks/clk_out1
-register_axi_subordinate axi_interconnect_0 M15_AXI 0xB0200000 0x00200000 firmware_flash_bram_ctrl_0/S_AXI Mem0 S_AXI_FIRMWARE_FLASH TRUE /htg940_clocks/clk_out1
+if {[info exists htgDualMcu] && $htgDualMcu} {
+  register_axi_subordinate soc_controller_interconnect_0 M00_AXI 0xB0200000 0x00200000 firmware_flash_bram_ctrl_0/S_AXI Mem0 S_AXI_FIRMWARE_FLASH TRUE /htg940_clocks/clk_out1
+  register_axi_subordinate soc_controller_interconnect_0 M01_AXI 0xA9000000 0x01000000 caliptra_package_top_0/S_AXI_MCI1 reg0 S_AXI_MCI1 TRUE /htg940_clocks/clk_out1
+  register_axi_subordinate soc_controller_interconnect_0 M02_AXI 0xB0060000 0x00020000 caliptra_package_top_0/S_AXI_MCU1_ROM reg0 S_AXI_MCU1_ROM TRUE /htg940_clocks/clk_out1
+} else {
+  register_axi_subordinate axi_interconnect_0 M15_AXI 0xB0200000 0x00200000 firmware_flash_bram_ctrl_0/S_AXI Mem0 S_AXI_FIRMWARE_FLASH TRUE /htg940_clocks/clk_out1
+}
 
 register_axi_subordinate usb_interconnect_0 M00_AXI 0xA4200000 0x00100000 caliptra_package_top_0/S_AXI_USB_COMBO  reg0 S_AXI_USB_COMBO  TRUE /htg940_clocks/clk_out1
 register_axi_subordinate usb_interconnect_0 M01_AXI 0xA4300000 0x00100000 caliptra_package_top_0/S_AXI_USB_DEV0_MEM reg0 S_AXI_USB_DEV0_MEM TRUE /htg940_clocks/clk_out1
@@ -378,6 +392,14 @@ connect_bd_intf_net [get_bd_intf_pins caliptra_package_top_0/M_AXI_MCU_SB] \
                     [get_bd_intf_pins axi_interconnect_0/S03_AXI]
 connect_bd_intf_net [get_bd_intf_pins axi_cdma_0/M_AXI] \
                     [get_bd_intf_pins axi_interconnect_0/S04_AXI]
+if {[info exists htgDualMcu] && $htgDualMcu} {
+  foreach {bus slot} {IFU 05 LSU 06 SB 07} {
+    connect_bd_intf_net [get_bd_intf_pins caliptra_package_top_0/M_AXI_MCU1_$bus] \
+      [get_bd_intf_pins axi_interconnect_0/S${slot}_AXI]
+  }
+  connect_bd_intf_net [get_bd_intf_pins axi_interconnect_0/M15_AXI] \
+    [get_bd_intf_pins soc_controller_interconnect_0/S00_AXI]
+}
 
 connect_bd_intf_net -intf_net M_AXI_USB_BRIDGE \
   [get_bd_intf_pins axi_interconnect_0/M14_AXI] \
@@ -432,6 +454,12 @@ connect_bd_net -net peripheral_aresetn \
   [get_bd_pins staging_sram_bram_ctrl_0/s_axi_aresetn] \
   [get_bd_pins firmware_flash_bram_ctrl_0/s_axi_aresetn] \
   [get_bd_pins axi_cdma_0/s_axi_lite_aresetn]
+if {[info exists htgDualMcu] && $htgDualMcu} {
+  connect_bd_net [get_bd_pins htg940_clocks/clk_out1] \
+    [get_bd_pins soc_controller_interconnect_0/aclk]
+  connect_bd_net [get_bd_pins proc_sys_reset_0/peripheral_aresetn] \
+    [get_bd_pins soc_controller_interconnect_0/aresetn]
+}
 
 # I3C reset crosses from the Caliptra-produced source reset to i3c_clk.
 connect_bd_net [get_bd_pins caliptra_package_top_0/xilinx_i3c_aresetn] \
@@ -546,6 +574,11 @@ set managers [list \
   caliptra_package_top_0/M_AXI_MCU_SB  \
   caliptra_package_top_0/M_AXI_CALIPTRA \
   axi_cdma_0/Data]
+if {[info exists htgDualMcu] && $htgDualMcu} {
+  foreach bus {IFU LSU SB} {
+    lappend managers caliptra_package_top_0/M_AXI_MCU1_$bus
+  }
+}
 
 foreach manager $managers {
   for {set i 1} {$i <= $axi_subordinates(ID)} {incr i} {

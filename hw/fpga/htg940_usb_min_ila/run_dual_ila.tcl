@@ -12,6 +12,7 @@ if {[llength $versionArgs] == 1 &&
 }
 set htgForceUlpiMode [expr {[lsearch -exact $argv FORCE_ULPI_MODE] >= 0}]
 set htgSoftwareUlpiStartup [expr {[lsearch -exact $argv SOFTWARE_ULPI_STARTUP] >= 0}]
+set htgDualMcu [expr {[lsearch -exact $argv DUAL_MCU] >= 0}]
 if {$htgForceUlpiMode && $htgSoftwareUlpiStartup} {
     error "FORCE_ULPI_MODE and SOFTWARE_ULPI_STARTUP are mutually exclusive"
 }
@@ -23,6 +24,9 @@ set outputName [expr {$mcuUsbOnly ?
     "htg940_usb_min_ila/build_mcu_usb_only" : "htg940_usb_min_ila/build_iobuf_dual"}]
 set buildNameArgs [lsearch -all -inline -glob $argv BUILD_NAME=*]
 if {[llength $buildNameArgs] > 1} {error "Only one BUILD_NAME is allowed"}
+if {$htgDualMcu && ([llength $buildNameArgs] != 1 || $mcuUsbOnly)} {
+    error "DUAL_MCU requires a separate full BUILD_NAME=build_full_<suffix>"
+}
 if {$htgForceUlpiMode && ([llength $buildNameArgs] != 1 || $mcuUsbOnly)} {
     error "FORCE_ULPI_MODE requires a separate BUILD_NAME=build_full_<suffix>"
 }
@@ -72,6 +76,17 @@ if {$resume || $restartSynth} {
     }
     if {$savedMode ne $requestedMode} {
         error "PHY mode mismatch: project=$savedMode requested=$requestedMode; create a fresh build."
+    }
+    set pairFile [file join [file dirname $project] htg_mcu_count.txt]
+    set savedCount 1
+    if {[file isfile $pairFile]} {
+        set fh [open $pairFile r]
+        set savedCount [string trim [read $fh]]
+        close $fh
+    }
+    set requestedCount [expr {$htgDualMcu ? 2 : 1}]
+    if {$savedCount ne "$requestedCount"} {
+        error "MCU count mismatch: project=$savedCount requested=$requestedCount; create a fresh build."
     }
     if {$restartSynth} {
         source [file join $diagnosticDir isolate_dual_ila_constraints.tcl]

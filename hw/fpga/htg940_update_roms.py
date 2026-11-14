@@ -2,7 +2,9 @@
 """Patch HTG940 ROM initialization using updatemem, never synthesize or route.
 
 Inputs: matching base BIT/MMI from ONE implementation; Core ROM <=96 KiB,
-MCU ROM <=128 KiB. .bin is raw bytes at ROM offset zero; .mem is 64-bit
+MCU0/MCU1 ROMs <=128 KiB each. --mcu-rom retains its MCU0 meaning;
+--mcu1-rom selects the distinct DUAL_MCU memory. .bin is raw bytes at
+ROM offset zero; .mem is 64-bit
 hex words in XPM order (optional @ hexadecimal WORD addresses). Short
 images are zero padded. ELF is intentionally rejected: use the project's
 ROM build/conversion flow to obtain the final ROM binary including its digest.
@@ -23,7 +25,11 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 
-ROMS = {'core': ('imem_inst1', 96 * 1024), 'mcu': ('mcu_rom', 128 * 1024)}
+ROMS = {
+    'core': ('imem_inst1', 96 * 1024),
+    'mcu': ('mcu_rom', 128 * 1024),
+    'mcu1': ('mcu1_rom', 128 * 1024),
+}
 
 
 def sha(path):
@@ -115,12 +121,13 @@ def main():
     p.add_argument('--mmi', required=True, type=Path)
     p.add_argument('--core-rom', type=Path)
     p.add_argument('--mcu-rom', type=Path)
+    p.add_argument('--mcu1-rom', type=Path, help='SoC-controller ROM for DUAL_MCU builds')
     p.add_argument('--out', required=True, type=Path)
     p.add_argument('--updatemem', default='updatemem')
     p.add_argument('--dry-run', action='store_true', help='validate only; do not invoke updatemem or create output')
     a = p.parse_args()
-    if not (a.core_rom or a.mcu_rom):
-        p.error('Supply --core-rom and/or --mcu-rom')
+    if not (a.core_rom or a.mcu_rom or a.mcu1_rom):
+        p.error('Supply --core-rom, --mcu-rom and/or --mcu1-rom')
     bit, mmi, out = a.bit.resolve(), a.mmi.resolve(), a.out.resolve()
     report = Path(str(out) + '.json')
     if not bit.is_file() or not mmi.is_file() or bit.stat().st_size == 0:

@@ -236,10 +236,29 @@ if {[info exists HTG_ULPI_DIAGNOSTICS] && $HTG_ULPI_DIAGNOSTICS} {
   source [file join $fpgaDir htg940_usb_min_ila prepare_debug_sources.tcl]
 }
 
+if {[info exists htgDualMcu] && $htgDualMcu} {
+  if {$BOARD ne "HTG940"} {error "DUAL_MCU is only supported for HTG940"}
+  set dualPackage [file join $outputDir caliptra_package_top_dual.v]
+  puts [exec python3 [file join $fpgaDir htg940 prepare_dual_mcu.py] \
+    --subsystem [file join $outputDir caliptra_ss_top.sv] \
+    --mci-source [file join $ssrtlDir src mci rtl mci_top.sv] \
+    --wrapper $wrapperGenerated \
+    --package [file join $fpgaDir src caliptra_package_top.v] \
+    --package-out $dualPackage]
+  remove_files [get_files [file join $fpgaDir src caliptra_package_top.v]]
+  add_files -norecurse $dualPackage
+  set fh [open [file join $outputDir htg_mcu_count.txt] w]
+  puts $fh 2
+  close $fh
+}
+
 # HTG940_PACKAGING_FIX_V1
 # Bake only the hardware interface conditional into generated copies, so IP
 # port discovery and OOC compilation cannot disagree about its existence.
 set htgInterfaceTop [file join $fpgaDir src caliptra_package_top.v]
+if {[info exists htgDualMcu] && $htgDualMcu} {
+  set htgInterfaceTop $dualPackage
+}
 if {$BOARD eq "HTG940" && [lsearch -exact $VERILOG_OPTIONS HTG940_ENTROPY_CONTROL] >= 0} {
   set specializer [file join $fpgaDir specialize_htg940_interface.py]
   puts [exec python3 $specializer $wrapperGenerated $wrapperGenerated]
@@ -484,6 +503,11 @@ ipx::associate_bus_interfaces -busif M_AXI_MCU_LSU -clock core_clk [ipx::current
 ipx::associate_bus_interfaces -busif M_AXI_MCU_SB -clock core_clk [ipx::current_core]
 ipx::associate_bus_interfaces -busif S_AXI_MCI -clock core_clk [ipx::current_core]
 ipx::associate_bus_interfaces -busif S_AXI_MCU_ROM -clock core_clk [ipx::current_core]
+if {[info exists htgDualMcu] && $htgDualMcu} {
+  foreach bus {M_AXI_MCU1_IFU M_AXI_MCU1_LSU M_AXI_MCU1_SB S_AXI_MCI1 S_AXI_MCU1_ROM} {
+    ipx::associate_bus_interfaces -busif $bus -clock core_clk [ipx::current_core]
+  }
+}
 ipx::associate_bus_interfaces -busif S_AXI_OTP -clock core_clk [ipx::current_core]
 ipx::associate_bus_interfaces -busif S_AXI_LCC -clock core_clk [ipx::current_core]
 

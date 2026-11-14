@@ -1,15 +1,16 @@
+# I3C reference files for HTG940 integration
 
-1. Solder a header to pins L05-L02 of J1 of the FMC-XM119-PMOD board packaged with the Versal FPGA.
-2. Ensure the jumper for EN1/J3 is bridging the sense pin to GND. This disables the level shifter on the FMC board for PMOD1.
-3. Install the FMC card to FMCP1/J51. Labeled (20) in the VCK190 User Guide.
-4. Install the I3C driver board on top of the FMC board. The connections are L05-L02 of J1, and 3.3V and GND of PMOD1.
-5. Set spare_i3c_control_sts.use_ext_i3c_host
+This directory retains reference driver-board design files. It is not the
+HTG940 connector or power-rail installation guide.
 
-Common issues:
-- SCL pad voltage between 0 and 1.5V indicates that the I/O bank is unpowered. The indicated LED below on the side of the board with the power connector will be off.
-  - ![](../images/versal_vadj_indicator.jpg)
-  - Connect the System Controller Ethernet port (next to HDMI ports) to the network.
-  - Connect to the System Controller serial port (third COM port) and capture IP
-  - Navigate to BEAM Tool Web Address printed by System Controller. Port 50002
-  - Home->Test The Board->Board Settings->FMC
-  - Set VADJ_FMC to 1.5V
+Use the [HTG940 FPGA guide](../README.md),
+[HTG940 pin constraints](../constraints/htg940_board_nxp.xdc) and
+[board wrapper](../board/htg940_board_top.sv) for the active integration.
+Verify connector pinout, I/O voltage, external pull-ups and driver wiring
+against the actual board/daughtercard schematics before connecting hardware.
+Reference-board files alone do not qualify those connections.
+
+The current FPGA profile uses a 60 MHz core and a separate 120 MHz I3C
+clock. This does not qualify operation at the subsystem's higher upstream
+I3C clock requirement. Dual-MCU integration does not add another I3C block
+or change the existing I3C wiring.

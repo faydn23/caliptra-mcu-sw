@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import re
 import subprocess
@@ -26,6 +27,95 @@ class FpgaIntegrationTest(unittest.TestCase):
                 check=True, capture_output=True, text=True,
             )
             cls.generated = generated.read_text()
+
+    def dual_mcu_sources(self):
+        spec = importlib.util.spec_from_file_location(
+            "prepare_dual_mcu", FPGA / "htg940/prepare_dual_mcu.py"
+        )
+        generator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generator)
+        subsystem = generator.subsystem(
+            self.generated, (SS / "src/mci/rtl/mci_top.sv").read_text()
+        )
+        wrapper = generator.wrapper(self.wrapper)
+        package = generator.package((FPGA / "src/caliptra_package_top.v").read_text())
+        return generator, subsystem, wrapper, package
+
+    def test_dual_mcu_preserves_shared_usb_and_isolates_reset_and_lifecycle_outputs(self):
+        generator, subsystem, wrapper, _ = self.dual_mcu_sources()
+        secondary = subsystem.split("begin : soc_controller", 1)[1]
+        mcu1 = generator.connections(generator.instance(secondary, "mcu1"))
+        mci1 = generator.connections(generator.instance(secondary, "mci1"))
+        self.assertEqual(mcu1["rst_l"], "cptra_ss_mcu_rst_b_o")
+        self.assertEqual(mci1["mcu_cpu_halt_ack_i"], mcu1["o_cpu_halt_ack"])
+        self.assertEqual(mci1["mcu_cpu_halt_status_i"], mcu1["o_cpu_halt_status"])
+        self.assertEqual(mci1["cptra_core_rst_b_i"], mci1["cptra_rst_b"])
+        for port in ("cptra_ss_rst_b_o", "mcu_clk_cg", "lc_init", "fc_opt_init"):
+            self.assertRegex(secondary, rf"\blogic\s+{mci1[port]}\s*;")
+        original_mci = generator.connections(generator.instance(self.generated, "mci_top_i"))
+        for port in ("lc_done", "fc_opt_done", "from_lcc_to_otp_program_i", "from_otp_to_lcc_program_i"):
+            self.assertEqual(mci1[port], original_mci[port])
+            self.assertNotRegex(secondary, rf"\blogic\b[^;\n]*\b{mci1[port]}\s*;")
+        self.assertRegex(secondary, r"ext_int\[`VEER_INTR_VEC_USB\]\s*=\s*cptra_ss_usb_dev1_irq_o;")
+        self.assertNotIn("= usb_dev_irq;", secondary)
+        usb = generator.instance(self.generated, "usb_core_i")
+        self.assertEqual(generator.instance(subsystem, "usb_core_i"), usb)
+        self.assertNotIn("caliptra_ss_top_0.rvtop_wrapper.", wrapper)
+        self.assertNotIn("caliptra_ss_top_0.mci_top_i.", wrapper)
+
+    def test_dual_mcu_connects_all_new_axi_ports_through_both_wrappers(self):
+        generator, subsystem, wrapper, package = self.dual_mcu_sources()
+        package_ports = generator.connections(
+            re.sub(r"^`[^\n]*", "", generator.instance(package, "cptra_wrapper"), flags=re.M)
+        )
+        subsystem_ports = generator.instance(wrapper, "caliptra_ss_top_0")
+        for old, new in generator.AXI_PORTS.items():
+            old_names = set(re.findall(rf"\b{old}_\w+\b", self.wrapper))
+            self.assertTrue(old_names)
+            for name in old_names:
+                new_name = name.replace(old, new, 1)
+                self.assertEqual(package_ports[new_name], new_name)
+                self.assertEqual(
+                    len(re.findall(rf"\b{new_name}\b", wrapper)),
+                    len(re.findall(rf"\b{name}\b", self.wrapper)),
+                    f"Missing or duplicated AXI adapter signal {new_name}",
+                )
+        for old, new in generator.INTERFACES.items():
+            suffixes = ("_w_sub", "_r_sub") if "mci_s_axi" in old or "rom_s_axi" in old else ("_w_mgr", "_r_mgr")
+            for suffix in suffixes:
+                self.assertRegex(subsystem_ports, rf"\.{new + suffix}\s*\({new}\.{suffix[1:]}\)")
+                self.assertRegex(subsystem, rf"axi_if\.{suffix[1:]}\s+{new + suffix},")
+        secondary = subsystem.split("begin : soc_controller", 1)[1]
+        self.assertEqual(secondary.count("xpm_memory_spram #("), 5)
+        self.assertIn("caliptra_ss_veer_sram_export mcu1_memories", secondary)
+        self.assertIn(") mcu1_rom (", secondary)
+        self.assertNotRegex(secondary, r"\bgenerate\b")
+
+    def test_dual_mcu_rom_patcher_selects_distinct_mmi_and_rejects_single_mcu_mmi(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path / "base.bit").write_bytes(b"test-bitstream")
+            (path / "mcu1.bin").write_bytes(b"\x13\x00\x00\x00")
+            memory = """<MemoryArray InstPath="top/soc_controller/mcu1_rom" MemoryPrimitive="block">
+<MemoryLayout CoreMemory_Width="64"><BRAM>
+<DataWidth_PortA LSB="0" MSB="63"/><AddressRange_PortA Begin="0" End="16383"/>
+</BRAM></MemoryLayout></MemoryArray>"""
+            mmi = path / "base.mmi"
+            mmi.write_text("<MemInfo>" + memory + "</MemInfo>")
+            cmd = [
+                "python3", str(FPGA / "htg940_update_roms.py"),
+                "--bit", str(path / "base.bit"), "--mmi", str(mmi),
+                "--mcu1-rom", str(path / "mcu1.bin"), "--out", str(path / "out.bit"),
+                "--dry-run",
+            ]
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            self.assertIn("mcu1: ", result.stdout)
+            self.assertIn("top/soc_controller/mcu1_rom", result.stdout)
+            self.assertFalse((path / "out.bit").exists())
+            mmi.write_text("<MemInfo>" + memory.replace("mcu1_rom", "mcu_rom") + "</MemInfo>")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Expected exactly one MemoryArray for mcu1_rom", result.stderr)
 
     def test_wrapper_subsystem_ports_exist(self):
         start = self.generated.index("module caliptra_ss_top")
@@ -323,6 +413,11 @@ if {[catch {
     def test_force_ulpi_runner_guards_and_argument_forwarding(self):
         runner = (FPGA / "htg940_usb_min_ila/run_dual_ila.tcl").read_text()
         cases = (
+            ("DUAL_MCU", None, "requires a separate full BUILD_NAME"),
+            ("BUILD_NAME=build_mcu_usb_only_test MCU_USB_ONLY DUAL_MCU",
+             None, "requires a separate full BUILD_NAME"),
+            ("BUILD_NAME=build_full_test DUAL_MCU RESUME",
+             "", "MCU count mismatch"),
             ("FORCE_ULPI_MODE", None, "requires a separate BUILD_NAME"),
             ("BUILD_NAME=build_full_test VERSION=invalid", None, "VERSION must be"),
             ("BUILD_NAME=build_full_test FORCE_ULPI_MODE VERSION=52a124ef",

@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1060" viewBox="0 0 1100 1060" role="img" aria-labelledby="title description">
+  <title id="title">HTG940 dual-MCU shared-USB block diagram</title>
+  <desc id="description">MCU0/MCI0 and MCU1/MCI1 connect to the common AXI fabric alongside one Caliptra Core. MCU0 controls USB DEV0 and initializes the shared hub and PHY. MCU1 is the SoC controller for DEV1. One USB compound, hub, PIE and external USB3320 PHY remain. MCU1 has private memories and local reset and halt control. A branch on main-fabric M15 serves firmware flash, MCI1 and MCU1 ROM.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-start" markerWidth="10" markerHeight="10" refX="0" refY="5" orient="auto">
+      <path d="M 10 0 L 0 5 L 10 10 Z" fill="#334155"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; fill: #0f172a; }
+      .title { font-size: 24px; font-weight: bold; }
+      .heading { font-size: 19px; font-weight: bold; }
+      .body { font-size: 16px; }
+      .small { font-size: 14px; }
+      .center { text-anchor: middle; }
+      .line { fill: none; stroke: #334155; stroke-width: 2; marker-end: url(#arrow); }
+      .bus { fill: none; stroke: #334155; stroke-width: 2; marker-start: url(#arrow-start); marker-end: url(#arrow); }
+      .primary { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; }
+      .secondary { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 2; }
+      .shared { fill: #ecfdf5; stroke: #059669; stroke-width: 2; }
+      .neutral { fill: #f8fafc; stroke: #64748b; stroke-width: 2; }
+    </style>
+  </defs>
+  <rect width="1100" height="1060" fill="#ffffff"/>
+  <text x="550" y="32" class="title center">HTG940: dual MCU/MCI, shared USB</text>
+  <text x="550" y="57" class="body center">XCVU13P | 60 MHz core | external 60 MHz ULPI | separate 120 MHz I3C</text>
+
+  <rect x="30" y="90" width="330" height="180" rx="12" class="primary"/>
+  <text x="195" y="120" class="heading center">MCU0 + MCI0</text>
+  <text x="195" y="147" class="body center">Existing processor/controller pair</text>
+  <text x="195" y="173" class="small center">MCI0: 0xA8000000</text>
+  <text x="195" y="196" class="small center">128 KiB ROM: 0xB0040000</text>
+  <text x="195" y="219" class="small center">Private CPU/MCI memories and mailboxes</text>
+  <text x="195" y="246" class="body center">DEV0 + shared hub/PHY initialization</text>
+
+  <rect x="405" y="90" width="290" height="180" rx="12" class="neutral"/>
+  <text x="550" y="120" class="heading center">Caliptra Core</text>
+  <text x="550" y="151" class="body center">One existing Core/crypto complex</text>
+  <text x="550" y="181" class="body center">96 KiB Core ROM</text>
+  <text x="550" y="211" class="small center">Core CSR: 0xA4100000</text>
+  <text x="550" y="241" class="small center">Not duplicated for MCU1</text>
+
+  <rect x="740" y="90" width="330" height="180" rx="12" class="secondary"/>
+  <text x="905" y="120" class="heading center">MCU1 + MCI1</text>
+  <text x="905" y="147" class="body center">Added SoC controller for DEV1</text>
+  <text x="905" y="173" class="small center">MCI1: 0xA9000000</text>
+  <text x="905" y="196" class="small center">128 KiB ROM: 0xB0060000</text>
+  <text x="905" y="219" class="small center">Private memories; local reset/halt loops</text>
+  <text x="905" y="246" class="body center">DEV1 interrupt routed to MCU1</text>
+
+  <path d="M 195 274 V 326" class="bus"/>
+  <path d="M 550 274 V 326" class="bus"/>
+  <path d="M 905 274 V 326" class="bus"/>
+  <text x="211" y="304" class="small">3 managers + targets</text>
+  <text x="566" y="304" class="small">AXI manager</text>
+  <text x="919" y="304" class="small">3 managers + targets</text>
+
+  <rect x="30" y="330" width="1040" height="70" rx="10" class="neutral"/>
+  <text x="550" y="358" class="heading center">Common arbitrated AXI fabric</text>
+  <text x="550" y="383" class="body center">8 inputs / 16 outputs | concurrent transactions | same address map for all managers</text>
+  <path d="M 360 404 V 456" class="bus"/>
+  <text x="376" y="436" class="small">M14: unchanged USB AXI bridge</text>
+  <path d="M 900 404 V 456" class="bus"/>
+
+  <rect x="30" y="460" width="660" height="430" rx="12" class="shared"/>
+  <text x="360" y="490" class="heading center">Shared USB path: one compound, one PHY</text>
+  <rect x="55" y="520" width="280" height="110" rx="9" class="primary"/>
+  <text x="195" y="548" class="heading center">USB DEV0</text>
+  <text x="195" y="573" class="small center">CSR in COMBO: 0xA4200000</text>
+  <text x="195" y="597" class="small center">Memory: 0xA4300000</text>
+  <text x="195" y="620" class="small center">Controlled by MCU0; IRQ to MCU0</text>
+  <rect x="365" y="520" width="300" height="110" rx="9" class="secondary"/>
+  <text x="515" y="548" class="heading center">USB DEV1</text>
+  <text x="515" y="573" class="small center">CSR: 0xA4400000</text>
+  <text x="515" y="597" class="small center">Memory: 0xA4500000</text>
+  <text x="515" y="620" class="small center">Controlled by MCU1; IRQ to MCU1</text>
+  <path d="M 195 634 V 686" class="bus"/>
+  <path d="M 515 634 V 686" class="bus"/>
+  <rect x="55" y="690" width="610" height="90" rx="9" class="shared"/>
+  <text x="360" y="718" class="heading center">Shared hub + PIE + common registers</text>
+  <text x="360" y="744" class="body center">MCU0 initializes common hardware</text>
+  <text x="360" y="766" class="small center">Firmware coordinates ownership; no AXI isolation between MCUs</text>
+  <path d="M 360 784 V 821" class="bus"/>
+  <rect x="55" y="825" width="610" height="60" rx="9" class="shared"/>
+  <text x="360" y="849" class="heading center">One external USB3320 PHY</text>
+  <text x="360" y="872" class="body center">Forced ULPI retained; existing clock/reset behavior unchanged</text>
+
+  <rect x="730" y="460" width="340" height="215" rx="12" class="neutral"/>
+  <text x="900" y="490" class="heading center">M15 AXI branch: 1 to 3</text>
+  <text x="900" y="526" class="body center">Existing firmware flash</text>
+  <text x="900" y="550" class="small center">0xB0200000 / 2 MiB</text>
+  <text x="900" y="586" class="body center">MCI1 + MCU1 ROM targets</text>
+  <text x="900" y="610" class="small center">Private storage in the MCU1/MCI1 pair</text>
+  <text x="900" y="648" class="small center">AXI fanout, not another USB hub</text>
+
+  <rect x="730" y="710" width="340" height="180" rx="12" class="neutral"/>
+  <text x="900" y="740" class="heading center">Other shared AXI targets</text>
+  <text x="900" y="773" class="body center">OTP / lifecycle / I3C / CDMA</text>
+  <text x="900" y="802" class="body center">Wrapper CSR / staging SRAM</text>
+  <text x="900" y="831" class="body center">Existing ROM backdoors</text>
+  <text x="900" y="865" class="small center">Existing hardware and addresses preserved</text>
+  <path d="M 1069 365 H 1086 V 798 H 1074" class="bus"/>
+
+  <path d="M 360 894 V 941" class="bus"/>
+  <text x="376" y="923" class="small">Physical USB connection</text>
+  <rect x="30" y="945" width="1040" height="55" rx="10" class="neutral"/>
+  <text x="550" y="979" class="heading center">External USB host / connector</text>
+  <text x="550" y="1027" class="small center">RTL-only integration: MCU1 ROM is a placeholder until patched; coordinated firmware is required.</text>
+  <text x="550" y="1049" class="small center">Full FPGA implementation, timing/resource closure and board operation remain to be verified.</text>
+</svg>
