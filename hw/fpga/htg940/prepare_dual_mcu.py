@@ -20,6 +20,12 @@ INTERFACES = {
     "cptra_ss_mcu_ifu_m_axi_if": "cptra_ss_mcu1_ifu_m_axi_if",
     "cptra_ss_mcu_sb_m_axi_if": "cptra_ss_mcu1_sb_m_axi_if",
 }
+MEMORY_INTERFACES = {
+    "cptra_ss_mci_mcu_sram_req_if": "mcu1_sram_req_if",
+    "cptra_ss_mcu_rom_patch_sram_req_if": "mcu1_rom_patch_sram_req_if",
+    "cptra_ss_mcu_mbox0_sram_req_if": "mcu1_mbox0_sram_req_if",
+    "cptra_ss_mcu_mbox1_sram_req_if": "mcu1_mbox1_sram_req_if",
+}
 
 
 def replace_once(text, old, new):
@@ -114,10 +120,14 @@ def memory(name, interface, words, width, address_width, rom=False):
 def subsystem(text, mci_source):
     mcu = connections(instance(text, "rvtop_wrapper"))
     mci = connections(instance(text, "mci_top_i"))
+    mci_header = re.split(r"^\s*\);", mci_source, maxsplit=1, flags=re.M)[0]
+    mci_header = re.sub(r"/\*.*?\*/|//[^\n]*", "", mci_header, flags=re.S)
     outputs = set(re.findall(
-        r"^\s*output\s+(?:[\w:]+\s+)?(?:\[[^\n]*?\]\s*)?(\w+)\s*[,;]",
-        mci_source.split("mci_reg__out_t", 1)[0], re.M,
+        r"^\s*output\s+(?:[\w:]+\s+)?(?:\[[^\n]*?\]\s*)?(\w+)\s*,?\s*$",
+        mci_header, re.M,
     ))
+    if "security_state_o" not in outputs:
+        raise ValueError("MCI output declarations must include the final security_state_o port")
     # Internal CPU/MCI nets must not feed back into the primary subsystem.
     local_names = set()
     for name in outputs:
@@ -139,11 +149,16 @@ def subsystem(text, mci_source):
     interface_ports = []
     pairs = {}
     for old, new in INTERFACES.items():
+        # The MCI interface name differs between the FPGA wrapper and SS ports.
+        subsystem_interface = old + "_if" if old == "cptra_ss_mci_s_axi" else old
         for suffix in ("_w_sub", "_r_sub") if "mci_s_axi" in old or "rom_s_axi" in old else ("_w_mgr", "_r_mgr"):
-            old_port, new_port = old + suffix, new + suffix
+            old_port, new_port = subsystem_interface + suffix, new + suffix
+            if not re.search(rf"\baxi_if\.{suffix[1:]}\s+{old_port}\b", text):
+                raise ValueError(f"Missing original subsystem AXI port {old_port}")
             direction = suffix[1:]
             interface_ports.append(f"    axi_if.{direction} {new_port},")
             pairs[old_port] = new_port
+    pairs.update(MEMORY_INTERFACES)
     mcu = {name: tokens(value, pairs) for name, value in mcu.items()}
     mci = {name: tokens(value, pairs) for name, value in mci.items()}
     mcu.update({
@@ -184,6 +199,7 @@ def subsystem(text, mci_source):
     ]
     memories = ""
     for name, interface, words, width, address_width in memory_specs:
+        interface = MEMORY_INTERFACES[interface]
         memories += f"""
     mci_mcu_sram_if #(.ADDR_WIDTH({address_width})) {interface} (
         .clk(cptra_ss_clk_i), .rst_b(cptra_ss_pwrgood_i)
@@ -227,6 +243,7 @@ if (1) begin : soc_controller
     caliptra_ss_veer_sram_export mcu1_memories (
         .cptra_ss_mcu0_el2_mem_export(cptra_ss_mcu0_el2_mem_export)
     );
+{memories}
 {irq}
 {user_assignments}
     mcu_top mcu1 (
@@ -235,7 +252,6 @@ if (1) begin : soc_controller
 {params}) mci1 (
 {render_connections(mci)}
     );
-{memories}
 end
 """
     text = replace_once(text, "    input logic cptra_ss_clk_i,", "\n".join(interface_ports) + "\n    input logic cptra_ss_clk_i,")

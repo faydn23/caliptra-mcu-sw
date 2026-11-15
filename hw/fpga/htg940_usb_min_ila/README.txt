@@ -80,6 +80,16 @@ not submit a scheduler job or program the FPGA.
 
 Resume/restart guards
 ---------------------
+The November 15 MCI isolation correction requires a fresh synthesis.
+The first dual-MCU implementation failed DRC MDRV-1 because MCI1 reused
+MCI0's AXI interface and final security-state output. MCI1 now uses its
+own AXI connection and all its outputs are local. SRAM/patch/mailbox
+interfaces have unique names and are declared before use to avoid
+binding to parent MCU0 memory interfaces. Regression tests and
+full-package SV driver analysis check the corrected isolation.
+Do not RESUME/RESTART_IMPL an old synthesized checkpoint for this fix.
+USB/ULPI and shared read-only lifecycle/OTP inputs are unchanged.
+
 RESUME and RESTART_SYNTH preserve existing outputs and require matching
 60 MHz clock, ULPI profile and MCU count. htg_phy_mode.txt records PHY
 selection; htg_mcu_count.txt records the added pair. Missing MCU-count

@@ -117,6 +117,57 @@ class FpgaIntegrationTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Expected exactly one MemoryArray for mcu1_rom", result.stderr)
 
+    def test_dual_mci_instances_use_distinct_axi_interfaces(self):
+        generator, subsystem, wrapper, _ = self.dual_mcu_sources()
+        primary = generator.connections(generator.instance(subsystem, "mci0"))
+        secondary = generator.connections(generator.instance(subsystem, "mci1"))
+        wrapper_ports = generator.instance(wrapper, "caliptra_ss_top_0")
+        for port, suffix in (("s_axi_w_if", "w_sub"), ("s_axi_r_if", "r_sub")):
+            target = f"cptra_ss_mci1_s_axi_{suffix}"
+            self.assertNotEqual(primary[port], secondary[port])
+            self.assertEqual(secondary[port], target)
+            self.assertIn(f".{target}(cptra_ss_mci1_s_axi.{suffix})", wrapper_ports)
+        secondary_block = subsystem.split("begin : soc_controller", 1)[1]
+        self.assertNotRegex(secondary_block, r"\bcptra_ss_mci_s_axi_if_[rw]_sub\b")
+
+    def test_dual_mci_declares_every_output_locally_including_final_struct_port(self):
+        generator, subsystem, _, _ = self.dual_mcu_sources()
+        block = subsystem.split("begin : soc_controller", 1)[1]
+        mci1 = generator.connections(generator.instance(block, "mci1"))
+        header = (SS / "src/mci/rtl/mci_top.sv").read_text().split("\n    );", 1)[0]
+        declarations = re.sub(r"//[^\n]*", "", header).splitlines()
+        outputs = [
+            line.strip().rstrip(",").split()[-1]
+            for line in declarations if line.strip().startswith("output ")
+        ]
+        self.assertIn("security_state_o", outputs)
+        self.assertEqual(mci1["security_state_o"], "mci_cptra_security_state")
+        for port in outputs:
+            with self.subTest(port=port):
+                self.assertIsNotNone(re.search(
+                    rf"^\s*[\w:]+(?:\s*\[[^\n]*?\])?\s+{mci1[port]}\s*;",
+                    block, re.M,
+                ), f"MCI1 output {port} escapes its private scope")
+
+    def test_dual_mci_memories_do_not_reuse_parent_interface_names(self):
+        generator, subsystem, _, _ = self.dual_mcu_sources()
+        block = subsystem.split("begin : soc_controller", 1)[1]
+        mci1 = generator.connections(generator.instance(block, "mci1"))
+        ports = {
+            "mci_mcu_sram_req_if": "mcu1_sram_req_if",
+            "mci_mcu_rom_patch_sram_req_if": "mcu1_rom_patch_sram_req_if",
+            "mcu_mbox0_sram_req_if": "mcu1_mbox0_sram_req_if",
+            "mcu_mbox1_sram_req_if": "mcu1_mbox1_sram_req_if",
+        }
+        for port, interface in ports.items():
+            with self.subTest(port=port):
+                self.assertEqual(mci1[port], interface)
+                self.assertRegex(block, rf"\)\s+{interface}\s*\(")
+                self.assertIn(f".douta({interface}.resp.rdata)", block)
+                self.assertLess(block.index(f") {interface} ("), block.index(") mci1 ("))
+        for original in generator.MEMORY_INTERFACES:
+            self.assertNotRegex(block, rf"\b{original}\b")
+
     def test_wrapper_subsystem_ports_exist(self):
         start = self.generated.index("module caliptra_ss_top")
         header = self.generated[start:self.generated.index("\n);", start)]
