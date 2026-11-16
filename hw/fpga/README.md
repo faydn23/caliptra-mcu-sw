@@ -143,6 +143,9 @@ MCU1 firmware must use its own MCI base and reset vector.
 `--mcu-rom` retains its existing **MCU0** meaning.
 The added **`--mcu1-rom`** selects the distinct `mcu1_rom` MMI instance.
 Core and MCU0 MMI names are unchanged.
+Both slash-separated and Vivado dotted scopes are supported, including
+`soc_controller/mcu1_rom` and `soc_controller.mcu1_rom`; partial instance-name
+matches are rejected.
 
 First validate your supplied images and matching implementation artifacts:
 
@@ -179,6 +182,22 @@ does not elaborate the unchanged mixed-language USB VHDL implementation.
 Actual elaboration confirmed two MCUs, two MCIs, one Core and one USB wrapper.
 These checks do **not** establish synthesis success, resource/timing closure,
 three-ROM MMI generation, enumeration or board-level recovery.
+
+### Board bring-up status, 2026-11-16
+
+A full dual-MCU implementation produced BIT/MMI artifacts and was programmed
+with external development ROMs. MCU0 and MCU1 each passed standalone,
+ROM-based USB3320 identity and scratch-register `0xA5` write/read tests,
+sequentially on the shared PHY. This does not qualify simultaneous USB
+ownership, separate DEV0/DEV1 enumeration or recovered-runtime execution.
+
+Separate MCU0-targeted and MCU1-targeted recovery runs enumerated USB and
+the Core reported receiving the complete 224,512-byte firmware image.
+MCU0 handles USB recovery in both configurations. Authentication then failed
+with vendor public-key digest mismatch (`0x000B0005`); full authenticated
+recovery remains unverified. Routed timing/resource closure is not claimed
+by these board observations. Firmware binaries and generated FPGA artifacts
+are not included in this source-only branch.
 
 The [pin constraints](constraints/htg940_board_nxp.xdc) and
 [board wrapper](board/htg940_board_top.sv) define the board boundary.

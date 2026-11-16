@@ -72,6 +72,7 @@ See its --help output for simulation-only arguments.
 
 Dual-MCU source checks, SV elaboration and Vivado block-design/address-map
 validation passed. SV elaboration treats unchanged USB VHDL as external.
-Full dual-MCU synthesis, timing/resource closure, three-ROM MMI generation,
-firmware coordination and actual USB enumeration/recovery remain unverified.
+For subsequent implementation and board bring-up results, see the dated
+Checks and qualification section in ../README.md. Full authenticated USB
+recovery and recovered-runtime execution have not passed.
 No FPGA build is submitted and no board is programmed by source preparation.

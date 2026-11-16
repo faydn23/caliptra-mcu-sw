@@ -112,6 +112,16 @@ class FpgaIntegrationTest(unittest.TestCase):
             self.assertIn("mcu1: ", result.stdout)
             self.assertIn("top/soc_controller/mcu1_rom", result.stdout)
             self.assertFalse((path / "out.bit").exists())
+            mmi.write_text("<MemInfo>" + memory.replace(
+                "soc_controller/mcu1_rom", "soc_controller.mcu1_rom"
+            ) + "</MemInfo>")
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            self.assertIn("top/soc_controller.mcu1_rom", result.stdout)
+            mmi.write_text("<MemInfo>" + memory.replace(
+                "mcu1_rom", "other_mcu1_rom"
+            ) + "</MemInfo>")
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
             mmi.write_text("<MemInfo>" + memory.replace("mcu1_rom", "mcu_rom") + "</MemInfo>")
             result = subprocess.run(cmd, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)

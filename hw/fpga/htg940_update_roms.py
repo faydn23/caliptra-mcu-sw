@@ -49,7 +49,7 @@ def mapping(mmi, instance, size):
     for el in root.iter():
         el.tag = el.tag.rsplit('}', 1)[-1]
     matches = [el for el in root.iter('MemoryArray')
-               if instance in el.get('InstPath', '').split('/')]
+               if instance in re.split(r'[/.]', el.get('InstPath', ''))]
     if len(matches) != 1:
         raise ValueError('Expected exactly one MemoryArray for %s; found %d' % (instance, len(matches)))
     mem = matches[0]
